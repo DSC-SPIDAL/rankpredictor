@@ -106,13 +106,15 @@ class rplog:
         try:
             self.infname = logfile
             self.outfname = outfile
-            self.inf = open(logfile,'r',encoding="latin-1")
+            #self.inf = open(logfile,'r',encoding="latin-1")
+            self.inf = open(logfile,'r')
         
             #self.df = pd.DataFrame([], columns = COLUMNS);
             self.outfname = outfile
             self.outf = {}
             self.lastrec = {}
 
+            logger.info('open log file successfully : %s', logfile)
         except:
             logger.error('open log file failed : %s', logfile)
             self.inf = None
@@ -126,7 +128,6 @@ class rplog:
 
 
 
-        logger.info('open log file successfully : %s', logfile)
 
     def rewind(self):
         self.inf.seek(0)
@@ -214,6 +215,10 @@ class rplog:
 
                     #rank
                     items[RECSTARTCOL] = str(_hex2int(items[RECSTARTCOL]))
+                    #completed_laps
+                    id = RECSTARTCOL + self.dict_c['completed_laps']
+                    items[id] = str(_hex2int(items[id]))
+
                     #save completed laps info
                     self.outf_c.write(','.join(items[RECSTARTCOL:]) + '\n')
 
