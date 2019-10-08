@@ -41,45 +41,31 @@ hunits = 16
 
 
 ```python
-#datalist = ['2017-all_completed_laps_diff.csv','2018-all_completed_laps_diff.csv' ]
-
+datalist = ['2017-all_completed_laps_diff.csv','2018-all_completed_laps_diff.csv' ]
 #datalist = read_list('train_all.list')
-datalist = read_list('train_completed.list')
+#datalist = read_list('train_completed.list')
 scaler, dataset, dblens = load_data(datalist)
 
 dataset.info(verbose=True)
 print('dataset shape', dataset.shape)
 ```
 
-    load data/Barber-2018-completed_laps_diff.csv, len=797
-    load data/Gateway-2018-completed_laps_diff.csv, len=1992
-    load data/Indy500-2017-completed_laps_diff.csv, len=3216
-    load data/IndyGP-2018-completed_laps_diff.csv, len=1806
-    load data/Iowa-2018-completed_laps_diff.csv, len=1505
-    load data/LongBeach-2018-completed_laps_diff.csv, len=1204
-    load data/Mid-Ohio-2018-completed_laps_diff.csv, len=1274
-    load data/Phoenix-2018-completed_laps_diff.csv, len=2761
-    load data/Pocono-2018-completed_laps_diff.csv, len=804
-    load data/Portland-2018-completed_laps_diff.csv, len=1907
-    load data/RoadAmerica-2018-completed_laps_diff.csv, len=1008
-    load data/StPete-2018-completed_laps_diff.csv, len=1554
-    load data/Texas-2018-completed_laps_diff.csv, len=2241
-    load data/Toronto-2018-completed_laps_diff.csv, len=1290
-    load data/Indy500-2018-completed_laps_diff.csv, len=3618
+    load 2017-all_completed_laps_diff.csv, len=5650
+    load 2018-all_completed_laps_diff.csv, len=5769
     <class 'pandas.core.frame.DataFrame'>
-    Int64Index: 26977 entries, 0 to 3617
+    Int64Index: 11419 entries, 0 to 5768
     Data columns (total 8 columns):
-    Unnamed: 0        26977 non-null int64
-    car_number        26977 non-null int64
-    completed_laps    26977 non-null int64
-    rank              26977 non-null int64
-    elapsed_time      26977 non-null float64
-    rank_diff         26977 non-null float64
-    time_diff         26977 non-null float64
-    dbid              26977 non-null int64
+    Unnamed: 0        11419 non-null int64
+    car_number        11419 non-null int64
+    completed_laps    11419 non-null int64
+    rank              11419 non-null int64
+    elapsed_time      11419 non-null float64
+    rank_diff         11419 non-null float64
+    time_diff         11419 non-null float64
+    dbid              11419 non-null int64
     dtypes: float64(3), int64(5)
-    memory usage: 1.9 MB
-    dataset shape (26977, 8)
+    memory usage: 802.9 KB
+    dataset shape (11419, 8)
 
 
 
@@ -101,9 +87,9 @@ w_train, w_val, w_test = w[:ntrain], w[ntrain:ntrain + nval], w[ntrain+nval:]
 print('train shape:', X_train.shape)
 ```
 
-    carNumber = 200, max T =301
-    train=182, val=9, test=9
-    train shape: (182, 296, 1)
+    carNumber = 66, max T =201
+    train=33, val=16, test=17
+    train shape: (33, 196, 1)
 
 
 
@@ -111,9 +97,7 @@ print('train shape:', X_train.shape)
 #
 # plot one car time series for each event
 #
-firstcar = np.cumsum(dblens)
-idx = [0]
-idx.extend(list(firstcar)[:-1])
+idx = np.arange(8)
 plot_examples(X[idx],y[idx],ypreds=None,nm_ypreds=None)
 #plot_examples(X[:10],y[:10],ypreds=None,nm_ypreds=None)
 ```
@@ -176,11 +160,11 @@ model_stateless.summary()
     _________________________________________________________________
     Layer (type)                 Output Shape              Param #   
     =================================================================
-    input (InputLayer)           (None, 296, 1)            0         
+    input (InputLayer)           (None, 196, 1)            0         
     _________________________________________________________________
-    RNN (LSTM)                   (None, 296, 16)           1152      
+    RNN (LSTM)                   (None, 196, 16)           1152      
     _________________________________________________________________
-    time_distributed_1 (TimeDist (None, 296, 1)            17        
+    time_distributed_1 (TimeDist (None, 196, 1)            17        
     =================================================================
     Total params: 1,169
     Trainable params: 1,169
@@ -195,7 +179,7 @@ model_stateless.summary()
 ```python
 start = time.time()
 history = model_stateless.fit(X_train,y_train,
-                             batch_size=32,
+                             batch_size=8,
                              shuffle=True,
                              epochs=500,
                              verbose=0,
@@ -210,13 +194,13 @@ plt.legend()
 
     WARNING:tensorflow:From /scratch/hpda/anaconda3/envs/predictor/lib/python3.7/site-packages/keras/backend/tensorflow_backend.py:422: The name tf.global_variables is deprecated. Please use tf.compat.v1.global_variables instead.
     
-    Time Took :11.87 min
+    Time Took :7.28 min
 
 
 
 
 
-    <matplotlib.legend.Legend at 0x7f006c9ead68>
+    <matplotlib.legend.Legend at 0x7f8136f7f828>
 
 
 
@@ -240,9 +224,9 @@ lstmts_result = predict('lstmts', model_stateless, X_test, y_test, scaler)
 print(lstmts_result[0][:10])
 ```
 
-    lstmts model mae=0.023966, raw mae=5.392019, raw mape=12.039039
-    [0.11803528 0.1512082  0.14446549 0.13344195 0.12642843 0.12338037
-     0.12062842 0.11947159 0.11912063 0.11928044]
+    lstmts model mae=0.024604, raw mae=12.225181, raw mape=12.020914
+    [0.04034573 0.04203084 0.04202824 0.04147708 0.04093631 0.04061466
+     0.04055327 0.04069139 0.04094954 0.04125318]
 
 
 
@@ -253,27 +237,28 @@ lstmts_result[0][20:60], y_test[0,20:60].flatten()
 
 
 
-    (array([0.11638539, 0.11656962, 0.11686633, 0.11608727, 0.11598805,
-            0.11677881, 0.11762815, 0.1165043 , 0.11542702, 0.11554007,
-            0.11619905, 0.11566739, 0.11676511, 0.11596856, 0.14449683,
-            0.13704933, 0.12159518, 0.11783002, 0.11704488, 0.11667089,
-            0.11620839, 0.11576194, 0.11545351, 0.11485803, 0.11481121,
-            0.11462796, 0.11432807, 0.12250184, 0.1406858 , 0.1530005 ,
-            0.21019684, 0.20333962, 0.20550498, 0.2163449 , 0.21691324,
-            0.17179015, 0.14548936, 0.14043298, 0.1552192 , 0.19401091],
+    (array([0.04096603, 0.04081705, 0.04070094, 0.04061542, 0.04056596,
+            0.04055591, 0.04059064, 0.04065905, 0.0407589 , 0.0408835 ,
+            0.0410402 , 0.04124089, 0.04137488, 0.04129262, 0.04118973,
+            0.04126387, 0.04134577, 0.04134229, 0.04121292, 0.04096934,
+            0.04067821, 0.04048774, 0.04064462, 0.04150708, 0.04353421,
+            0.0472357 , 0.05303152, 0.06103523, 0.07061838, 0.07929087,
+            0.08365439, 0.08334997, 0.08003947, 0.07622869, 0.07250074,
+            0.0704689 , 0.07302056, 0.08039662, 0.08956417, 0.09752458],
            dtype=float32),
-     array([0.11888945, 0.12039819, 0.11779228, 0.11621398, 0.11709358,
-            0.11854499, 0.11729048, 0.11990416, 0.11784673, 0.17677009,
-            0.14786155, 0.11763872, 0.11587508, 0.11580218, 0.11570862,
-            0.11550217, 0.11546328, 0.11569462, 0.11522149, 0.11592997,
-            0.11601642, 0.11584641, 0.1329177 , 0.1663938 , 0.18295951,
-            0.29718295, 0.260008  , 0.25856192, 0.27230061, 0.26281725,
-            0.16239249, 0.11930236, 0.11868077, 0.15233444, 0.22798552,
-            0.26191942, 0.25737098, 0.22701481, 0.17061201, 0.12207716]))
+     array([0.04128915, 0.04203723, 0.04218204, 0.0427196 , 0.0424318 ,
+            0.0447173 , 0.05790411, 0.06814519, 0.04212297, 0.04138324,
+            0.04116839, 0.04126188, 0.04110077, 0.04113609, 0.04154072,
+            0.04126762, 0.04162133, 0.04139743, 0.04169076, 0.04152996,
+            0.04156477, 0.04155421, 0.04187139, 0.06037075, 0.10033803,
+            0.11871622, 0.121206  , 0.10557288, 0.11063817, 0.10718014,
+            0.07199025, 0.04340942, 0.04192251, 0.04551761, 0.09580033,
+            0.1059604 , 0.10643538, 0.09516154, 0.07680789, 0.04238068]))
 
 
 
-### train for 2000 epochs
+### Result Analysis
+
 It is amazing to see the capacity of the model, which predicts the pikes of crashes ''accurately''.
 However, the performance goes worse in the cases of pitstops. They are totally ignored.
 Overfitting must occur here.
@@ -284,52 +269,20 @@ Another idea is to modify the loss funtion to emphysize on pitstops.
 
 
 ```python
-start = time.time()
-history = model_stateless.fit(X_train,y_train,
-                             batch_size=32,
-                             shuffle=True,
-                             epochs=2000,
-                             verbose=0,
-                             sample_weight=w_train,
-                             validation_data=(X_val,y_val,w_val))
-end = time.time()
-print("Time Took :{:3.2f} min".format( (end-start)/60 ))
-for line in history.history.keys():
-    plt.plot(history.history[line],marker='.',label=line)
-plt.legend()
-```
-
-
-```python
-y_pred_stateless = model_stateless.predict(X_test)
-plot_examples(X_test,y_test,ypreds=[y_pred_stateless],nm_ypreds=["y_pred stateless"])
-```
-
-
-```python
 y_pred_stateless = model_stateless.predict(X_train)
 
-idx_train = idx[:-1]
-
+#idx_train = idx[:-1]
+idx_train = np.arange(8)
 plot_examples(X_train[idx_train],y_train[idx_train],ypreds=[y_pred_stateless[idx_train]],nm_ypreds=["y_pred stateless"])
 ```
 
 
-![png](output_19_0.png)
+![png](output_17_0.png)
 
 
 ### conclusion
 
-Obviously, the model capture the crashes in 2017 but failed in predicting what happens in 2018.
+raw mae=12.225181, raw mape=12.020914
 
-As crashes are not ''predictable'', we would like to train a model to capture the pitstops rather than the bigger
-spikes caused by the ''random'' crashes.
+it's worse when compared with the model trained with completed cards(lstmts_201702018-completedcars)
 
-In the next step, let''s try to modify the loss function to suppress the effects of crashes and emphysize on 
-pitstops. After all, the ranking are influenced more by pitstops.
-
-
-
-```python
-
-```
