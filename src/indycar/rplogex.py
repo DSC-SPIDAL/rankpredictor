@@ -154,7 +154,7 @@ class rplog:
             self.errcnt += 1
 
 
-    def extract(self):
+    def extract(self, save_telemetry = False):
         """
         Find the start point, $F  R.I G
         """
@@ -231,7 +231,7 @@ class rplog:
                         if tmms > curTime:
                             curTime = tmms
 
-                if raceStartFlag:
+                if raceStartFlag and save_telemetry:
                     #save records from the start point
                     self.writeRecord(items)
 
@@ -313,11 +313,11 @@ if __name__=="__main__":
     logger.info("running %s" % ' '.join(sys.argv))
 
     # cmd argument parser
-    usage = 'rplog.py --extract --cmdType cmdType --input inputfile --output outputfile'
+    usage = 'rplog.py --extract --telemetry --input inputfile --output outputfile'
     parser = OptionParser(usage)
     parser.add_option("--input", dest="inputfile")
     parser.add_option("--output", dest="outputfile")
-    parser.add_option("--cmdType", dest="cmdType")
+    parser.add_option("--telemetry", action="store_true")
     parser.add_option("--extract", action="store_true")
 
     opt, args = parser.parse_args()
@@ -328,4 +328,4 @@ if __name__=="__main__":
 
     rplog = rplog(opt.inputfile, opt.outputfile)
 
-    rplog.extract()
+    rplog.extract(opt.telemetry)

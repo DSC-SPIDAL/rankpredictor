@@ -1,0 +1,21 @@
+
+root=/share/jproject/pengb/share/indycar/data/IndyCar/
+
+unzip "$root/Barber 2018.zip"
+unzip "$root/Belle Isle 2018.zip"
+unzip "$root/Gateway 2018.zip"
+unzip "$root/Indy 500 2018.zip"
+unzip "$root/Indy GP 2018.zip"
+unzip "$root/Indy Oval OT 2018.zip"
+unzip "$root/Iowa 2018.zip"
+unzip "$root/Long Beach 2018.zip"
+unzip "$root/Mid-Ohio 2018.zip"
+unzip "$root/Phoenix 2018.zip"
+unzip "$root/Phoenix OT 2018.zip"
+unzip "$root/Pocono 2018.zip"
+unzip "$root/Portland 2018.zip"
+unzip "$root/Road America 2018.zip"
+unzip "$root/Sonoma 2017.zip"
+unzip "$root/St Pete 2018.zip"
+unzip "$root/Texas 2018.zip"
+unzip "$root/Toronto 2018.zip"
