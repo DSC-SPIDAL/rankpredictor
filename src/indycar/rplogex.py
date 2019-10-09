@@ -71,6 +71,18 @@ COMPLETED_LAPS=['rank','car_number','unique_id','completed_laps','elapsed_time',
     'laps_behind_prec', 'overall_rank', 'overall_best_laptime', 'current_status', 'track_status',   \
     'pit_stop_count', 'last_pitted_lap', 'start_position', 'laps_led']
 
+#$O Overall result
+OVERALL_RESULT=['resultid','deleted','marker','rank','overall_rank','start_position','best_lap_time','best_lap','last_lap_time','laps','total_time','last_warm_up_qual_time','lap1_qual_time','lap2_qual_time','lap3_qual_time','lap4_qual_time','total_qual_time','status','diff','gap','on_track','pit_stops','last_pit_lap','since_pit_laps','flag_status','no','first_name','last_name','class','equipment','license','team','total_entrant_points','total_driver_points','comment','overtake_remain','overtake_active','tire_type','best_speed','last_speed','average_speed','entrantid','teamid','driverid','offtrack']
+
+
+#$L crossing information
+CROSSING_INFO=['car_number','unique_identifier','time_line','source','elapsed_time','track_status','crossing_status']
+
+#$S
+COMPLETED_SECTIONS=['car_number','unique_identifier','section_identifier','elapsed_time','last_section_time','last_lap']
+
+CMDMAP={'C':COMPLETED_LAPS,'O':OVERALL_RESULT,'L':CROSSING_INFO,'S':COMPLETED_SECTIONS}
+
 
 def _buliddict(l):
     """
