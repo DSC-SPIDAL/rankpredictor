@@ -91,11 +91,12 @@ def load_data(datalist):
     
     #scaler
     scaler = MinMaxScaler()
+    alldata[['rank_diff_raw', 'time_diff_raw']] = alldata[['rank_diff', 'time_diff']]
     alldata[['rank_diff', 'time_diff']] = scaler.fit_transform(alldata[['rank_diff', 'time_diff']])
     
     return scaler, alldata, lens
 
-def generate_data(dataset, D= 1, target='rank'):
+def generate_data(dataset, D= 1, target='rank', shuffle = False):
     # dataset with multiple events, car_number is encoded with event id
     # T is the max len
     
@@ -142,6 +143,12 @@ def generate_data(dataset, D= 1, target='rank'):
         Y[car, :reclen, 0] = np.array(y_train[car])        
         W[car, :reclen] = 1
         
+    if shuffle:
+        idx = np.random.permutation(carNumber)
+        X = X[idx]
+        Y = Y[idx]
+        W = W[idx]
+
     return X, Y, W
 
 def read_list(listfile):
@@ -236,4 +243,4 @@ def predict(model_name,model, x_test, y_test_in, scaler=None, target='time'):
     # print
     print('%s model mae=%f, raw mae=%f, raw mape=%f'%(model_name, mae, tmae, tmape))
     
-    return y_pred, mae, tmae, tmape
+    return y_pred, Y_pred, mae, tmae, tmape
