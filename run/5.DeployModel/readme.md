@@ -5,7 +5,7 @@
 
 To use $C in the stream of the log records to indentify pitstop is feasible.
 
-Refer to [pitstop analysis](pitstop_crash_data_analysis.md)
+Refer to [pitstop analysis](result/pitstop_crash_data_analysis.md)
 
 But it is hard to tell the differences between data loss and the aftermath of a crash.
 
