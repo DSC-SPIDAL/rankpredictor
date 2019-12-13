@@ -153,6 +153,15 @@ class rplog:
         self.outf_o.write(','.join(header) + '\n')
         #self.outf_c.write(','.join(COMPLETED_LAPS) + '\n')
 
+
+        self.outf_cmds = {}
+        self.dict_cmds = {}
+        for cmd in ['L','S']:
+            self.dict_cmds[cmd] = _buliddict(CMDMAP[cmd])
+            self.outf_cmds[cmd] = open(cmd + '_' + outfile, 'w')
+            self.outf_cmds[cmd].write(','.join(CMDMAP[cmd]) + '\n')
+ 
+
         #track the latest timestamp
         self.latest_tm = ''
         self.latest_dist = {}
@@ -182,11 +191,6 @@ class rplog:
             #bad records
             self.errcnt += 1
 
-        #save status
-        #save the latest tm
-        self.latest_tm = items[TIMESTAMP]
-        self.latest_dist[carno] = items[LAPDIST]
-
 
 
     def writeRecord_cmdC(self, items, combinemode = False):
@@ -203,8 +207,8 @@ class rplog:
             self.outf[carno].write('\t'.join(items))
             self.outf[carno].write('\n')
         else:
-            self.outf_c.write(self.latest_tm + '\t')
-            self.outf_c.write(self.latest_dist[carno] + '\t')
+            #self.outf_c.write(self.latest_tm + '\t')
+            #self.outf_c.write(self.latest_dist[carno] + '\t')
             self.outf_c.write('\t'.join(items))
             self.outf_c.write('\n')
 
@@ -223,8 +227,8 @@ class rplog:
             self.outf[carno].write('\n')
 
         else:
-            self.outf_o.write(self.latest_tm + '\t')
-            self.outf_o.write(self.latest_dist[carno] + '\t')
+            #self.outf_o.write(self.latest_tm + '\t')
+            #self.outf_o.write(self.latest_dist[carno] + '\t')
             self.outf_o.write('\t'.join(items))
             self.outf_o.write('\n')
 
@@ -281,6 +285,35 @@ class rplog:
 
                             flagStatus = newflag
 
+            elif cmd == '$L':
+                if raceStartFlag:
+                    cmdid = cmd[1]
+                    # convert time
+                    for key in self.dict_cmds[cmdid]:
+                        if key.find('_time') != -1:
+                            id = self.dict_cmds[cmdid][key] + RECSTARTCOL
+                            items[id] = str(_hex2int(items[id])*1.0/10000)
+
+                    #save 
+                    self.outf_cmds[cmdid].write(','.join(items[RECSTARTCOL:]) + '\n')
+
+
+            elif cmd == '$S':
+                if raceStartFlag:
+                    cmdid = cmd[1]
+                    # convert time
+                    for key in self.dict_cmds[cmdid]:
+                        if key.find('time') != -1:
+                            id = self.dict_cmds[cmdid][key] + RECSTARTCOL
+                            items[id] = str(_hex2int(items[id])*1.0/10000)
+
+                    #last_lap
+                    id = RECSTARTCOL + self.dict_cmds[cmdid]['last_lap']
+                    items[id] = str(_hex2int(items[id]))
+
+                    #save 
+                    self.outf_cmds[cmdid].write(','.join(items[RECSTARTCOL:]) + '\n')
+
 
             elif cmd == '$C':
                 if raceStartFlag:
@@ -329,9 +362,18 @@ class rplog:
                         if tmms > curTime:
                             curTime = tmms
 
-                if raceStartFlag and save_telemetry:
-                    #save records from the start point
-                    self.writeRecord(items)
+                if raceStartFlag:
+                    if save_telemetry:
+                        #save records from the start point
+                        self.writeRecord(items)
+
+                    #save status
+                    #save the latest tm
+                    carno = items[CARNO]
+                    self.latest_tm = items[TIMESTAMP]
+                    self.latest_dist[carno] = items[LAPDIST]
+
+
 
         #write out the flagInfo
         outf = open('%s-flag.csv'%(self.outfname), 'w')
