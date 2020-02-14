@@ -104,8 +104,16 @@ def _gettime(timestr, scale=1000.):
     tmms = 0
     tmall = timestr.split('.')
     tms = [int(x) for x in tmall[0].split(':')]
-    if len(tms) == 3 and len(tmall) == 2:
-        tmms = (tms[0] * 3600 + tms[1] * 60 + tms[2])*scale + float(tmall[1])
+    #bug fix, race start at noon
+    #$P?S1?31:39.521?, Gateway-2018
+    #if len(tms) == 3 and len(tmall) == 2:
+    #    tmms = (tms[0] * 3600 + tms[1] * 60 + tms[2])*scale + float(tmall[1])
+    if len(tmall) == 2:
+        if len(tms) == 3:
+            tmms = (tms[0] * 3600 + tms[1] * 60 + tms[2])*scale + float(tmall[1])
+        elif len(tms) == 2:
+            tmms = (tms[0] * 60 + tms[1])*scale + float(tmall[1])
+
     return tmms
  
 class rplog:
@@ -157,7 +165,13 @@ class rplog:
 
         tmms = _gettime(items[TIMESTAMP])
         if tmms > self.lastrec[carno]:
-            self.outf[carno].write('\t'.join(items[2:10]))
+            #bugfix, the format of datetime
+            writeStr = '\t'.join(items[2:10])
+            if len(items[2].split(':')) !=3:
+                writeStr = '00:' + writeStr
+
+            #self.outf[carno].write('\t'.join(items[2:10]))
+            self.outf[carno].write(writeStr)
             self.outf[carno].write('\n')
 
             self.lastrec[carno] = tmms
@@ -238,8 +252,15 @@ class rplog:
                 if items[TIMESTAMP].find(':') > 0:
                     tmall = items[TIMESTAMP].split('.')
                     tms = [int(x) for x in tmall[0].split(':')]
-                    if len(tms) == 3 and len(tmall) == 2:
-                        tmms = (tms[0] * 3600 + tms[1] * 60 + tms[2])*1000. + float(tmall[1])
+                    
+                    #bug fix, race start at noon
+                    #$P?S1?31:39.521?, Gateway-2018
+                    if len(tmall) == 2:
+                        if len(tms) == 3:
+                            tmms = (tms[0] * 3600 + tms[1] * 60 + tms[2])*1000. + float(tmall[1])
+                        elif len(tms) == 2:
+                            tmms = (tms[0] * 60 + tms[1])*1000. + float(tmall[1])
+ 
                         if tmms > curTime:
                             curTime = tmms
 
