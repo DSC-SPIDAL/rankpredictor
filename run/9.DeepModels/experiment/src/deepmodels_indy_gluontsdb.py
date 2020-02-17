@@ -1,0 +1,235 @@
+#!/usr/bin/env python
+# coding: utf-8
+"""
+Deep Models on the Indy dataset
+
+dataset:
+freq, prediction_length, cardinality,train_ds, test_ds
+
+deep models:
+
+deepAR, deepstate, deepFactor
+
+
+
+"""
+# # DeepAR on simulation indy500 laptime dataset
+# 
+# laptime dataset
+# <eventid, carids, laptime (totalcars x totallaps)>
+
+# Third-party imports
+import mxnet as mx
+from mxnet import gluon
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import json
+import logging
+import os,sys
+from optparse import OptionParser
+
+
+import pickle
+from pathlib import Path
+from gluonts.dataset.common import ListDataset
+from gluonts.model.deepar import DeepAREstimator
+from gluonts.model.deep_factor import DeepFactorEstimator
+from gluonts.model.deepstate import DeepStateEstimator
+from gluonts.trainer import Trainer
+from gluonts.model.simple_feedforward import SimpleFeedForwardEstimator
+from gluonts.evaluation.backtest import make_evaluation_predictions
+from gluonts.evaluation import Evaluator
+
+logger = logging.getLogger(__name__)
+ 
+
+#global variables
+prediction_length = 50
+context_length = 100
+freq = "1H"
+ 
+
+events = ['Phoenix','Indy500','Texas','Iowa','Pocono','Gateway']
+events_id={key:idx for idx, key in enumerate(events)}
+
+cardinality = [0]
+TS_LAPTIME=2
+TS_RANK=3
+
+def load_dataset(inputfile, run_ts = TS_LAPTIME):
+    global freq, prediction_length, cardinality
+
+    with open(inputfile, 'rb') as f:
+        # have to specify it.
+        freq, prediction_length, cardinality,train_ds, test_ds = pickle.load(f, encoding='latin1')
+    
+    logger.info(f"number of cars: {cardinality}")
+    
+    return train_ds, test_ds
+
+
+def plot_prob_forecasts(ts_entry, forecast_entry, outputfile):
+    plot_length = context_length 
+    prediction_intervals = (50.0, 90.0)
+    legend = ["observations", "median prediction"] + [f"{k}% prediction interval" for k in prediction_intervals][::-1]
+
+    figcnt = len(ts_entry)
+
+    #fig, axs = plt.subplots(figcnt, 1, figsize=(10, 7))
+
+    #for idx in range(figcnt):
+
+    #    ts_entry[idx][-plot_length:].plot(ax=axs[idx])  # plot the time series
+    #    forecast_entry[idx].plot(prediction_intervals=prediction_intervals, color='g')
+    #    axs[idx].grid(which="both")
+    #    axs[idx].legend(legend, loc="upper left")
+    
+    for idx in range(figcnt):
+        fig, axs = plt.subplots(1, 1, figsize=(10, 7))
+
+        ts_entry[idx][-plot_length:].plot(ax=axs)  # plot the time series
+        forecast_entry[idx].plot(prediction_intervals=prediction_intervals, color='g')
+        plt.grid(which="both")
+        plt.legend(legend, loc="upper left")
+        plt.savefig(outputfile + '-%d.pdf'%idx)
+
+
+def evaluate_model(estimator, train_ds, test_ds, outputfile):
+    predictor = estimator.train(train_ds)
+    
+    #if not os.path.exists(outputfile):
+    #    os.mkdir(outputfile)
+
+    #predictor.serialize(Path(outputfile))
+
+    forecast_it, ts_it = make_evaluation_predictions(
+        dataset=test_ds,  # test dataset
+        predictor=predictor,  # predictor
+        num_samples=100,  # number of sample paths we want for evaluation
+    )
+    
+    forecasts = list(forecast_it)
+    tss = list(ts_it)
+    logger.info(f'tss len={len(tss)}, forecasts len={len(forecasts)}')
+    
+    # car12@rank1, car1@rank16, car7@rank33, the index is 7,0,4 accordingly
+    # Indy500 Car 12 WillPower
+    #offset = 52-7
+    offset = 0
+    ts_entry = [tss[7+offset],tss[0+offset],tss[4+offset]]
+    forecast_entry = [forecasts[7+offset],forecasts[0+offset],forecasts[4+offset]]
+
+    plot_prob_forecasts(ts_entry, forecast_entry, outputfile)
+    
+    evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9])
+    agg_metrics, item_metrics = evaluator(iter(tss), iter(forecasts), num_series=len(test_ds))
+    
+    
+    logger.info(json.dumps(agg_metrics, indent=4))
+    
+
+def init_estimator(model, gpuid, epochs=100):
+
+    if model == 'deepAR':
+        estimator = DeepAREstimator(
+            prediction_length=prediction_length,
+            context_length= context_length,
+            use_feat_static_cat=True,
+            cardinality=cardinality,
+            freq=freq,
+            trainer=Trainer(ctx="gpu(%s)"%gpuid, 
+                            epochs=epochs, 
+                            learning_rate=1e-3, 
+                            num_batches_per_epoch=100
+                           )
+        )
+    elif model == 'simpleFF':
+        estimator = SimpleFeedForwardEstimator(
+            num_hidden_dimensions=[10],
+            prediction_length=prediction_length,
+            context_length= context_length,
+            freq=freq,
+            trainer=Trainer(ctx="gpu(%s)"%gpuid, 
+                            epochs=epochs,
+                            learning_rate=1e-3,
+                            hybridize=False,
+                            num_batches_per_epoch=100
+                           )
+        )
+    elif model == 'deepFactor':
+        estimator = DeepFactorEstimator(
+            prediction_length=prediction_length,
+            context_length= context_length,
+            freq=freq,
+            trainer=Trainer(ctx="gpu(%s)"%gpuid, 
+                            epochs=epochs, 
+                            learning_rate=1e-3, 
+                            num_batches_per_epoch=100
+                           )
+        )
+    elif model == 'deepState':
+        estimator = DeepStateEstimator(
+            prediction_length=prediction_length,
+            use_feat_static_cat=True,
+            cardinality=cardinality,
+            freq=freq,
+            trainer=Trainer(ctx="gpu(%s)"%gpuid, 
+                            epochs=epochs, 
+                            learning_rate=1e-3, 
+                            num_batches_per_epoch=100
+                           )
+        )
+        
+    else:
+        logger.error('model %s not support yet, quit', model)
+        sys.exit(-1)
+
+
+    return estimator
+
+if __name__ == '__main__':
+    program = os.path.basename(sys.argv[0])
+    logger = logging.getLogger(program)
+
+    # logging configure
+    import logging.config
+    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s')
+    logging.root.setLevel(level=logging.INFO)
+    logger.info("running %s" % ' '.join(sys.argv))
+
+    # cmd argument parser
+    usage = 'deepar_simindy500.py --epochs epochs --input inputpicklefile --output outputfile'
+    parser = OptionParser(usage)
+    parser.add_option("--input", dest="inputfile", default='sim-indy500-laptime-2018.pickle')
+    parser.add_option("--output", dest="outputfile")
+    parser.add_option("--epochs", dest="epochs", default=100)
+    parser.add_option("--model", dest="model", default="deepAR")
+    parser.add_option("--gpuid", dest="gpuid", default=0)
+    parser.add_option("--contextlen", dest="contextlen", default=100)
+    #parser.add_option("--predictionlen", dest="predictionlen", default=50)
+    #parser.add_option("--testlen", dest="testlen", default=50)
+    parser.add_option("--ts", dest="ts_type", default=2)
+
+    opt, args = parser.parse_args()
+
+    #set the global length
+    #prediction_length = int(opt.predictionlen)
+    context_length = int(opt.contextlen)
+    #test_length = int(opt.testlen)
+    ts_type = int(opt.ts_type)
+
+    train_ds, test_ds = load_dataset(opt.inputfile, ts_type)
+
+    runid = f'-i{opt.outputfile}-e{opt.epochs}-m{opt.model}-p{prediction_length}-c{opt.contextlen}-f{freq}-ts{opt.ts_type}'
+    logger.info("runid=%s", runid)
+            
+
+    estimator = init_estimator(opt.model, opt.gpuid, opt.epochs)
+
+    evaluate_model(estimator, train_ds, test_ds, opt.outputfile)
+
+
+
+
+
