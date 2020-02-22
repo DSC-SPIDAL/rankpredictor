@@ -35,20 +35,29 @@ class NaivePredictor(Predictor):
             feat_dynamic_real = entry.get("feat_dynamic_real", [])
 
             #forecast_samples = self._run_prophet(data, params)
-            target_dim = target.shape[0] if len(target.shape) > 1 else 1
-            
+            #target_dim = target.shape[0] if len(target.shape) > 1 else 1
+            if len(target.shape) > 1:
+                #multivariate
+                target_dim = target.shape[0] 
+                target_len = target.shape[1]
+            else:
+                target_dim = 1
+                target_len = target.shape[0]
+
             if target_dim ==1 :
                 forecast_samples = np.zeros((num_samples, prediction_length))
                 #navie prediction with the last status of target
+                #forecast_samples[:] = target[-prediction_length]
                 forecast_samples[:] = target[-1]
             else:
                 forecast_samples = np.zeros((num_samples, prediction_length, target_dim))
 
+                #forecast_samples[:,:] = target[-prediction_length]
                 forecast_samples[:,:] = target[-1]
 
             yield SampleForecast(
                 samples=forecast_samples,
-                start_date=start,
+                start_date=start + target_len,
                 freq=self.freq,
                 )
 
