@@ -228,6 +228,9 @@ class rplog:
             if not carno in self.outf:
                 self.outf[carno] = open('%s-%s.csv'%(self.outfname, carno), 'w')
 
+            if not carno in self.latest_dist:
+                self.latest_dist[carno] = '0'
+
             self.outf[carno].write(self.latest_tm + '\t')
             self.outf[carno].write(self.latest_dist[carno] + '\t')
             self.outf[carno].write('\t'.join(items))
@@ -266,10 +269,32 @@ class rplog:
             self.outf_o.write('\t'.join(items))
             self.outf_o.write('\n')
 
+    def writeRecord_cmdX(self, cmdid, items, combinemode = False):
+        """
+        Write records without timestamp
+        """
+        #cmd L, S
+        carno = items[0]
+        if combinemode:
+            if not carno in self.outf:
+                self.outf[carno] = open('%s-%s.csv'%(self.outfname, carno), 'w')
+
+            self.outf[carno].write(self.latest_tm + '\t')
+            self.outf[carno].write(self.latest_dist[carno] + '\t')
+            self.outf[carno].write('\t'.join(items))
+            self.outf[carno].write('\n')
+
+        else:
+            #self.outf_o.write(self.latest_tm + '\t')
+            #self.outf_o.write(self.latest_dist[carno] + '\t')
+            #self.outf_o.write('\t'.join(items))
+            #self.outf_o.write('\n')
+            self.outf_cmds[cmdid].write(','.join(items[RECSTARTCOL:]) + '\n')
 
 
 
-    def extract(self, save_telemetry = False, combine_c = False, combine_o = False):
+    def extract(self, save_telemetry = False, combine_c = False, 
+            combine_o = False, include_pre = False):
         """
         Find the start point, $F  R.I G
         """
@@ -299,9 +324,9 @@ class rplog:
                         raceStartFlag = True
                         flagStatus = 'G'
                         startTime = curTime
-                        logger.info('Start point found at %s', _timestr(startTime))
+                        logger.info('Start point found at %s', _timestr(startTime, 1000))
 
-                        continue
+                        #continue
                     if raceStartFlag:
                         #check the flag changes
                         newflag = items[F_TRACKSTATUS] 
@@ -333,7 +358,8 @@ class rplog:
                             items[id] = str(_hex2int(items[id])*1.0/10000)
 
                     #save 
-                    self.outf_cmds[cmdid].write(','.join(items[RECSTARTCOL:]) + '\n')
+                    #self.outf_cmds[cmdid].write(','.join(items[RECSTARTCOL:]) + '\n')
+                    self.writeRecord_cmdX(cmdid, items[RECSTARTCOL:], combine_c)
 
 
             elif cmd == '$S':
@@ -350,7 +376,8 @@ class rplog:
                     items[id] = str(_hex2int(items[id]))
 
                     #save 
-                    self.outf_cmds[cmdid].write(','.join(items[RECSTARTCOL:]) + '\n')
+                    #self.outf_cmds[cmdid].write(','.join(items[RECSTARTCOL:]) + '\n')
+                    self.writeRecord_cmdX(cmdid, items[RECSTARTCOL:], combine_c)
 
 
             elif cmd == '$C':
@@ -407,7 +434,7 @@ class rplog:
                         if tmms > curTime:
                             curTime = tmms
 
-                if raceStartFlag:
+                if raceStartFlag or include_pre:
                     if save_telemetry:
                         #save records from the start point
                         self.writeRecord(items)
@@ -503,6 +530,7 @@ if __name__=="__main__":
     parser.add_option("--input", dest="inputfile")
     parser.add_option("--output", dest="outputfile")
     parser.add_option("--telemetry", action="store_true")
+    parser.add_option("--include_pre", action="store_true")
     parser.add_option("--combine_c", action="store_true")
     parser.add_option("--combine_o", action="store_true")
     parser.add_option("--extract", action="store_true")
@@ -515,4 +543,4 @@ if __name__=="__main__":
 
     rplog = rplog(opt.inputfile, opt.outputfile)
 
-    rplog.extract(opt.telemetry, opt.combine_c, opt.combine_o)
+    rplog.extract(opt.telemetry, opt.combine_c, opt.combine_o, opt.include_pre)

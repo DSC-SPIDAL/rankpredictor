@@ -220,7 +220,7 @@ def evaluate_model(predictor, evaluator, test_ds, outputfile):
     logger.info(json.dumps(agg_metrics, indent=4))
     
 
-def init_estimator(model, gpuid, epochs=100, target_dim = 3):
+def init_estimator(model, gpuid, epochs=100, batch_size = 32, target_dim = 3):
 
     if model == 'deepAR':
         estimator = DeepAREstimator(
@@ -230,6 +230,7 @@ def init_estimator(model, gpuid, epochs=100, target_dim = 3):
             cardinality=cardinality,
             freq=freq,
             trainer=Trainer(ctx="gpu(%s)"%gpuid, 
+                            batch_size = batch_size,
                             epochs=epochs, 
                             learning_rate=1e-3, 
                             num_batches_per_epoch=100
@@ -244,6 +245,7 @@ def init_estimator(model, gpuid, epochs=100, target_dim = 3):
             use_feat_dynamic_real=True,
             freq=freq,
             trainer=Trainer(ctx="gpu(%s)"%gpuid, 
+                            batch_size = batch_size,
                             epochs=epochs, 
                             learning_rate=1e-3, 
                             num_batches_per_epoch=100
@@ -257,6 +259,7 @@ def init_estimator(model, gpuid, epochs=100, target_dim = 3):
             cardinality=cardinality,
             freq=freq,
             trainer=Trainer(ctx="gpu(%s)"%gpuid, 
+                            batch_size = batch_size,
                             epochs=epochs, 
                             learning_rate=1e-3, 
                             num_batches_per_epoch=100
@@ -272,6 +275,7 @@ def init_estimator(model, gpuid, epochs=100, target_dim = 3):
             context_length= context_length,
             freq=freq,
             trainer=Trainer(ctx="gpu(%s)"%gpuid, 
+                            batch_size = batch_size,
                             epochs=epochs,
                             learning_rate=1e-3,
                             hybridize=False,
@@ -284,6 +288,7 @@ def init_estimator(model, gpuid, epochs=100, target_dim = 3):
             context_length= context_length,
             freq=freq,
             trainer=Trainer(ctx="gpu(%s)"%gpuid, 
+                            batch_size = batch_size,
                             epochs=epochs, 
                             learning_rate=1e-3, 
                             num_batches_per_epoch=100
@@ -296,6 +301,7 @@ def init_estimator(model, gpuid, epochs=100, target_dim = 3):
             cardinality=cardinality,
             freq=freq,
             trainer=Trainer(ctx="gpu(%s)"%gpuid, 
+                            batch_size = batch_size,
                             epochs=epochs, 
                             learning_rate=1e-3, 
                             num_batches_per_epoch=100
@@ -336,6 +342,7 @@ if __name__ == '__main__':
     parser.add_option("--model", dest="model", default="deepAR")
     parser.add_option("--gpuid", dest="gpuid", default=0)
     parser.add_option("--contextlen", dest="contextlen", default=100)
+    parser.add_option("--batch_size", dest="batch_size", default=32)
     #parser.add_option("--predictionlen", dest="predictionlen", default=50)
     #parser.add_option("--testlen", dest="testlen", default=50)
     parser.add_option("--nosave", dest="nosave", action="store_true", default=False)
@@ -367,7 +374,8 @@ if __name__ == '__main__':
 
     # train
     classical_models = ['ets', 'arima', 'prophet', 'naive']
-    estimator = init_estimator(opt.model, opt.gpuid, opt.epochs, target_dim)
+    estimator = init_estimator(opt.model, opt.gpuid, 
+            opt.epochs, opt.batch_size,target_dim)
     
     if opt.evalmode == False:
         if opt.model in classical_models:
