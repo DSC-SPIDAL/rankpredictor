@@ -313,7 +313,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32, target_dim = 3):
 
         estimator = ProphetPredictor(freq= freq, prediction_length = prediction_length)
     elif model == 'arima':
-        estimator = RForecastPredictor(method_name='arima',freq= freq, prediction_length = prediction_length)
+        estimator = RForecastPredictor(method_name='arima',freq= freq, prediction_length = prediction_length, trunc_length = 1000)
     elif model == 'naive':
         estimator = NaivePredictor(freq= freq, prediction_length = prediction_length)
     else:
