@@ -44,11 +44,15 @@ from gluonts.trainer import Trainer
 from gluonts.model.simple_feedforward import SimpleFeedForwardEstimator
 from gluonts.evaluation.backtest import make_evaluation_predictions
 from gluonts.evaluation import Evaluator, MultivariateEvaluator
-from gluonts.distribution.multivariate_gaussian import MultivariateGaussianOutput
 from gluonts.model.predictor import Predictor
 from gluonts.model.prophet import ProphetPredictor
 from gluonts.model.r_forecast import RForecastPredictor
 from gluonts.dataset.util import to_pandas
+
+from gluonts.distribution.neg_binomial import NegativeBinomialOutput
+from gluonts.distribution.student_t import StudentTOutput
+from gluonts.distribution.multivariate_gaussian import MultivariateGaussianOutput
+
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
@@ -220,7 +224,8 @@ def evaluate_model(predictor, evaluator, test_ds, outputfile):
     logger.info(json.dumps(agg_metrics, indent=4))
     
 
-def init_estimator(model, gpuid, epochs=100, batch_size = 32, target_dim = 3):
+def init_estimator(model, gpuid, epochs=100, batch_size = 32, 
+        target_dim = 3, distr_output = None):
 
     if model == 'deepAR':
         estimator = DeepAREstimator(
@@ -228,6 +233,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32, target_dim = 3):
             context_length= context_length,
             use_feat_static_cat=True,
             cardinality=cardinality,
+            distr_output = distr_output,
             freq=freq,
             trainer=Trainer(ctx="gpu(%s)"%gpuid, 
                             batch_size = batch_size,
@@ -243,6 +249,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32, target_dim = 3):
             use_feat_static_cat=True,
             cardinality=cardinality,
             use_feat_dynamic_real=True,
+            distr_output = distr_output,
             freq=freq,
             trainer=Trainer(ctx="gpu(%s)"%gpuid, 
                             batch_size = batch_size,
@@ -313,7 +320,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32, target_dim = 3):
 
         estimator = ProphetPredictor(freq= freq, prediction_length = prediction_length)
     elif model == 'arima':
-        estimator = RForecastPredictor(method_name='arima',freq= freq, prediction_length = prediction_length, trunc_length = 1000)
+        estimator = RForecastPredictor(method_name='arima',freq= freq, prediction_length = prediction_length, trunc_length = 200)
     elif model == 'naive':
         estimator = NaivePredictor(freq= freq, prediction_length = prediction_length)
     else:
@@ -347,6 +354,7 @@ if __name__ == '__main__':
     #parser.add_option("--testlen", dest="testlen", default=50)
     parser.add_option("--nosave", dest="nosave", action="store_true", default=False)
     parser.add_option("--evalmode", dest="evalmode", action="store_true", default=False)
+    parser.add_option("--distr_output", dest="distr_output", default='student')
 
     #obsolete
     parser.add_option("--mode", dest="mode", default='train')
@@ -368,14 +376,24 @@ if __name__ == '__main__':
     target_dim = target_dim[0] if len(target_dim) > 1 else 1
     logger.info('target_dim:%s', target_dim)
 
-    runid = f'-i{opt.outputfile}-e{opt.epochs}-m{opt.model}-p{prediction_length}-c{opt.contextlen}-f{freq}-dim{target_dim}'
+    runid = f'-i{opt.outputfile}-e{opt.epochs}-m{opt.model}-p{prediction_length}-c{opt.contextlen}-f{freq}-dim{target_dim}-dstr{opt.distr_output}'
     logger.info("runid=%s", runid)
             
 
     # train
     classical_models = ['ets', 'arima', 'prophet', 'naive']
+
+    distr_outputs ={'student':StudentTOutput(),
+                    'negbin':NegativeBinomialOutput()
+                    }
+    if opt.distr_output in distr_outputs:
+        distr_output = distr_outputs[opt.distr_output]
+    else:
+        logger.error('output distr no found:%s', opt.distr_output)
+        exit(-1)
+
     estimator = init_estimator(opt.model, opt.gpuid, 
-            opt.epochs, opt.batch_size,target_dim)
+            opt.epochs, opt.batch_size,target_dim, distr_output = distr_output)
     
     if opt.evalmode == False:
         if opt.model in classical_models:
