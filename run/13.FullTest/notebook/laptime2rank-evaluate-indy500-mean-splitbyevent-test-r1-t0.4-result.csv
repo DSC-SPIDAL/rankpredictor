@@ -1,0 +1,2 @@
+,model,prediction_length,halfmode,trainid,top1acc,top1acc_farmost,top5acc,top5acc_farmost,tau,rmse,top1acc_std,top1acc_farmost_std,top5acc_std,top5acc_farmost_std,tau_std,rmse_std
+0,oracle,2,0,indy500,0.597,0.517,0.783,0.736,0.801,15.286,0.000,0.000,0.000,0.000,0.000,0.000
