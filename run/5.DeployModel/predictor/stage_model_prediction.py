@@ -16,24 +16,19 @@
 # In[1]:
 
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 import random
-from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
-from sklearn.svm import LinearSVC, SVC
-from sklearn.linear_model import LogisticRegression
+
+import numpy as np
+import pandas as pd
+import xgboost as xgb
+from sklearn import metrics
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble.forest import RandomForestRegressor
-from sklearn.linear_model.ridge import RidgeCV
 from sklearn.linear_model import LassoCV
-from sklearn.linear_model.stochastic_gradient import SGDRegressor
+from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model.ridge import RidgeCV
+from sklearn.svm import LinearSVC
 from sklearn.svm.classes import SVR
-from sklearn import metrics
-import xgboost as xgb
-import os
-
 
 # In[2]:
 
@@ -205,8 +200,8 @@ eventsname = ['Phoenix','Indy500','Texas','Iowa','Pocono','Gateway']
 events = set(stagedata['eventid'])
 #for eventid in events:
 eventid = 1   # Indy500
-signmodel = 'signmodel-' + eventsname[eventid] + '-lsvc' + '.pkl'
-valuemodel = 'valuemodel-' + eventsname[eventid] + '-lasso' + '.pkl'
+signmodel = 'signmodel-' + eventsname[eventid] + '-lsvc' + '.pkl2'
+valuemodel = 'valuemodel-' + eventsname[eventid] + '-lasso' + '.pkl2'
 
 
 # In[6]:
@@ -234,9 +229,9 @@ def predict(carno, stageid):
 
 
 #load model and predict
-with open(signmodel, 'rb') as fin:
+with open(valuemodel, 'rb') as fin:
     clf, test_x, test_y = pickle.load(fin)
-    
+
 yhat = clf.predict(test_x)
 
 #check carno 12
@@ -250,7 +245,7 @@ for stageid in range(10):
     if Y == EMPTY:
         break
     ret_y.append(Y)
-    
+
 print('trueth:', test_y[idx])
 print('prediction:', _yhat)
 print('prediction:', ret_y)
@@ -264,7 +259,7 @@ print('prediction:', ret_y)
 #load model and predict
 with open(valuemodel, 'rb') as fin:
     clf, test_x, test_y = pickle.load(fin)
-    
+
 yhat = clf.predict(test_x).astype(int)
 
 #check carno 12
@@ -278,7 +273,7 @@ for stageid in range(10):
     if Y == EMPTY:
         break
     ret_y.append(Y)
-    
+
 #predict(12, 3)
 print('trueth:', test_y[idx])
 print('prediction:', _yhat)
@@ -288,5 +283,20 @@ print('prediction:', ret_y)
 # In[ ]:
 
 
+from flask import Flask, request
 
+api = Flask(__name__)
+
+
+@api.route('/predict', methods=['GET'])
+def get_companies():
+    car_number = request.args.get("car")
+    stage = request.args.get("stage")
+    print("Received request", car_number, stage)
+    prediction = predict(int(car_number), int(stage))
+    return str(prediction)
+
+
+if __name__ == '__main__':
+    api.run(port=5001)
 
