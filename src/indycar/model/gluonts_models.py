@@ -225,7 +225,7 @@ def evaluate_model(predictor, evaluator, test_ds, outputfile):
     
 
 def init_estimator(model, gpuid, epochs=100, batch_size = 32, 
-        target_dim = 3, distr_output = None):
+        target_dim = 3, distr_output = None, use_feat_static = True):
 
     if model == 'deepAR':
         estimator = DeepAREstimator(
@@ -243,10 +243,44 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                            )
         )
     elif model == 'deepAR-Oracle':
+
+        if use_feat_static:
+            estimator = DeepAREstimator(
+                prediction_length=prediction_length,
+                context_length= context_length,
+                use_feat_static_cat=use_feat_static,
+                cardinality=cardinality,
+                use_feat_dynamic_real=True,
+                distr_output = distr_output,
+                freq=freq,
+                trainer=Trainer(ctx="gpu(%s)"%gpuid, 
+                                batch_size = batch_size,
+                                epochs=epochs, 
+                                learning_rate=1e-3, 
+                                num_batches_per_epoch=100
+                               )
+                )
+        else:
+            estimator = DeepAREstimator(
+                prediction_length=prediction_length,
+                context_length= context_length,
+                use_feat_static_cat=use_feat_static,
+                #cardinality=cardinality,
+                use_feat_dynamic_real=True,
+                distr_output = distr_output,
+                freq=freq,
+                trainer=Trainer(ctx="gpu(%s)"%gpuid, 
+                                batch_size = batch_size,
+                                epochs=epochs, 
+                                learning_rate=1e-3, 
+                                num_batches_per_epoch=100
+                               )
+                )
+    elif model == 'deepAR-nocarid':
         estimator = DeepAREstimator(
             prediction_length=prediction_length,
             context_length= context_length,
-            use_feat_static_cat=True,
+            use_feat_static_cat=use_feat_static,
             cardinality=cardinality,
             use_feat_dynamic_real=True,
             distr_output = distr_output,
@@ -262,7 +296,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
         estimator = DeepAREstimator(
             prediction_length=prediction_length,
             context_length= context_length,
-            use_feat_static_cat=True,
+            use_feat_static_cat=use_feat_static,
             cardinality=cardinality,
             freq=freq,
             trainer=Trainer(ctx="gpu(%s)"%gpuid, 
@@ -355,6 +389,7 @@ if __name__ == '__main__':
     parser.add_option("--nosave", dest="nosave", action="store_true", default=False)
     parser.add_option("--evalmode", dest="evalmode", action="store_true", default=False)
     parser.add_option("--distr_output", dest="distr_output", default='student')
+    parser.add_option("--nocarid", dest="nocarid", action="store_true", default=False)
 
     #obsolete
     parser.add_option("--mode", dest="mode", default='train')
@@ -392,8 +427,12 @@ if __name__ == '__main__':
         logger.error('output distr no found:%s', opt.distr_output)
         exit(-1)
 
+    use_feat_static = True
+    if opt.nocarid:
+        use_feat_static = False
+
     estimator = init_estimator(opt.model, opt.gpuid, 
-            opt.epochs, opt.batch_size,target_dim, distr_output = distr_output)
+            opt.epochs, opt.batch_size,target_dim, distr_output = distr_output,use_feat_static = use_feat_static)
     
     if opt.evalmode == False:
         if opt.model in classical_models:
