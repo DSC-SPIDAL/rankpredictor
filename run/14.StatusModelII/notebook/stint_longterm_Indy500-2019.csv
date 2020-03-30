@@ -1,0 +1,11 @@
+,runid,acc,mae
+0,fulloracle,0.601,6.081
+1,laponly,0.552,6.056
+2,notracklap,0.565,6.423
+3,fullpred,0.560,6.198
+4,curtrack,0.516,6.669
+5,zerotrack,0.536,5.815
+6,predtrack,0.552,5.730
+7,predpit,0.589,6.944
+8,deepAR,0.476,8.065
+9,naive,0.210,4.040
