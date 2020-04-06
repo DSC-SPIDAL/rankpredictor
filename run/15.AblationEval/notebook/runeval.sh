@@ -1,7 +1,7 @@
 datasetid=$1
 
 testevents=('Indy500-2018' 'Indy500-2019')
-tasks=('laptime' 'rank')
+tasks=('laptime' 'rank' 'timediff')
 
 for testevent in ${testevents[*]}; do
 
