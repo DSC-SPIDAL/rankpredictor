@@ -2190,10 +2190,10 @@ def get_sign(diff):
         sign = 0
     return sign
                 
-def get_stint_acc(forecasts, TRIM=2, currank = False):
+def get_stint_acc(forecasts, trim=2, currank = False):
     """
     input:
-        TRIM     ; steady lap of the rank (before pit_inlap, pit_outlap)
+        trim     ; steady lap of the rank (before pit_inlap, pit_outlap)
         forecasts;  carno -> [5,totallen]
                 0; lap_status
                 3; true_rank
@@ -2214,7 +2214,7 @@ def get_stint_acc(forecasts, TRIM=2, currank = False):
         startrank = true_rank[0]
         
         for pitpos in pitpos_list:
-            endrank = true_rank[pitpos-TRIM]
+            endrank = true_rank[pitpos-trim]
             diff = endrank - startrank
             sign = get_sign(diff)
                 
@@ -2225,7 +2225,7 @@ def get_stint_acc(forecasts, TRIM=2, currank = False):
                 pred_sign = get_sign(pred_diff)
                 
             else:
-                pred_endrank = pred_rank[pitpos-TRIM]
+                pred_endrank = pred_rank[pitpos-trim]
                 pred_diff = pred_endrank - startrank
                 pred_sign = get_sign(pred_diff)
             
@@ -2235,7 +2235,7 @@ def get_stint_acc(forecasts, TRIM=2, currank = False):
                             ])
             
             stintid += 1
-            startrank = true_rank[pitpos-TRIM]
+            startrank = true_rank[pitpos-trim]
             
         #end
         if pitpos_list[-1] < lapnum - 1:
@@ -2266,10 +2266,10 @@ def get_stint_acc(forecasts, TRIM=2, currank = False):
     
     return df
     
-def get_stint_acc_old(forecasts, TRIM=2):
+def get_stint_acc_old(forecasts, trim=2):
     """
     input:
-        TRIM     ; steady lap of the rank (before pit_inlap, pit_outlap)
+        trim     ; steady lap of the rank (before pit_inlap, pit_outlap)
         forecasts;  carno -> [5,totallen]
                 0; lap_status
                 3; true_rank
@@ -2290,11 +2290,11 @@ def get_stint_acc_old(forecasts, TRIM=2):
         startrank = true_rank[0]
         
         for pitpos in pitpos_list:
-            endrank = true_rank[pitpos-TRIM]
+            endrank = true_rank[pitpos-trim]
             diff = endrank - startrank
             sign = get_sign(diff)
                 
-            pred_endrank = pred_rank[pitpos-TRIM]
+            pred_endrank = pred_rank[pitpos-trim]
             pred_diff = pred_endrank - startrank
             pred_sign = get_sign(pred_diff)
             
@@ -2304,7 +2304,7 @@ def get_stint_acc_old(forecasts, TRIM=2):
                             ])
             
             stintid += 1
-            startrank = true_rank[pitpos-TRIM]
+            startrank = true_rank[pitpos-trim]
             
         #end
         if pitpos_list[-1] < lapnum - 1:
@@ -2413,7 +2413,7 @@ def runtest(modelname, model, datamode, naivemode, trainid= "2018"):
         print(f'Error, {_exp_id} evaluation not support yet')
         return 0,0, 0,0
 
-    df = get_stint_acc(forecasts_et, currank = naivemode)
+    df = get_stint_acc(forecasts_et, currank = naivemode, trim= _trim)
 
     correct = df[df['sign']==df['pred_sign']]
     acc = len(correct)/len(df)
@@ -2432,7 +2432,7 @@ def runtest(modelname, model, datamode, naivemode, trainid= "2018"):
 # In[20]:
 def mytest():
 
-    savefile = f'stint-evluate-{_exp_id}-d{_dataset_id}-t{_test_event}-c{_context_ratio}.csv'
+    savefile = f'stint-evluate-{_exp_id}-d{_dataset_id}-t{_test_event}-c{_context_ratio}_trim{_trim}.csv'
     if os.path.exists(savefile):
         print(f'{savefile} already exists, bye')
 
@@ -2480,18 +2480,20 @@ if __name__ == '__main__':
     logger.info("running %s" % ' '.join(sys.argv))
 
     # cmd argument parser
-    usage = 'stint-predictor-fastrun.py --datasetid datasetid --testevent testevent --task taskid '
+    usage = 'stint_predictor_fastrun.py --datasetid datasetid --testevent testevent --task taskid '
     parser = OptionParser(usage)
     parser.add_option("--task", dest="taskid", default='laptime')
     parser.add_option("--datasetid", dest="datasetid", default='indy2013-2018')
     parser.add_option("--testevent", dest="testevent", default='Indy500-2018')
     parser.add_option("--contextratio", dest="contextratio", default=0.)
+    parser.add_option("--trim", dest="trim", type=int, default=2)
 
     opt, args = parser.parse_args()
 
     #set global parameters
     _dataset_id = opt.datasetid
     _test_event = opt.testevent
+    _trim = opt.trim
     if opt.taskid == 'laptime':
         _task_id = 'laptime'  # rank,laptime, the trained model's task
         _run_ts = COL_LAPTIME   #COL_LAPTIME,COL_RANK
