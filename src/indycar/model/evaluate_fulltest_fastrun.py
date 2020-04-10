@@ -86,6 +86,7 @@ COL_LAPSTATUS=3
 COL_TIMEDIFF=4
 COL_CAUTION_LAPS_INSTINT=5
 COL_LAPS_INSTINT= 6
+COL_LAP2NEXTPIT= 8
 
 # oracle mode
 MODE_ORACLE = 1024  # oracle = track + lap
@@ -495,6 +496,7 @@ def get_pit_model(cuation_laps_instint, laps_instint, prediction_length):
 #FEATURE_CARID = 1
 FEATURE_STATUS = 2
 FEATURE_PITAGE = 4
+FEATURE_TRACKONLY = 8
 
 def make_dataset_byevent(runs, prediction_length, freq, 
                        useeid = False,
@@ -601,6 +603,9 @@ def make_dataset_byevent(runs, prediction_length, freq,
                 carno = rowid
                 carid = rowid
                 
+            #check carno in test_cars
+            if len(test_cars)>0 and carno not in test_cars:
+                continue
             
             if useeid:
                 static_cat = [carid, _data[0]]    
@@ -763,6 +768,13 @@ def make_dataset_byevent(runs, prediction_length, freq,
                                     'feat_static_cat': static_cat,
                                     'feat_dynamic_real': [track_rec,lap_rec,pitage_rec]
                                      }
+                                )
+                    elif feature_mode == FEATURE_TRACKONLY:
+                        _test.append({'target': rec[run_ts,:endpos].astype(np.float32), 
+                                    'start': start, 
+                                    'feat_static_cat': static_cat,
+                                    'feat_dynamic_real': [track_rec]
+                                     }
                                   )   
                     
                     test_rec_cnt += 1
@@ -897,7 +909,87 @@ def run_prediction_ex(test_ds, prediction_length, model_name,trainid):
 
 
 # In[8]:
+def load_model(model_name,trainid, prediction_length):
+    with mx.Context(mx.gpu(7)):    
 
+        rootdir = f'../models/remote/{_dataset_id}/{_task_id}-{trainid}/'
+        # deepAR-Oracle
+        if model_name == 'curtrack':
+            model=f'deepAR-Oracle-{_task_id}-curtrack-indy-f1min-t{prediction_length}-e1000-r1_curtrack_t{prediction_length}'
+            modeldir = rootdir + model
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  Predictor.deserialize(Path(modeldir))
+            print(f'loading model...done!, ctx:{predictor.ctx}')
+
+        elif model_name == 'zerotrack':
+            model=f'deepAR-Oracle-{_task_id}-nolap-zerotrack-indy-f1min-t{prediction_length}-e1000-r1_zerotrack_t{prediction_length}'
+            modeldir = rootdir + model
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  Predictor.deserialize(Path(modeldir))
+            print(f'loading model...done!, ctx:{predictor.ctx}')
+            
+        # deepAR-Oracle
+        elif model_name == 'oracle':
+            model=f'deepAR-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_oracle_t{prediction_length}'
+            modeldir = rootdir + model
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  Predictor.deserialize(Path(modeldir))
+            print(f'loading model...done!, ctx:{predictor.ctx}')
+        # deepAR-Oracle
+        elif model_name == 'oracle-laponly':
+            model=f'deepAR-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_oracle-laponly_t{prediction_length}'
+            modeldir = rootdir + model
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  Predictor.deserialize(Path(modeldir))
+            print(f'loading model...done!, ctx:{predictor.ctx}')
+        # deepAR-Oracle
+        elif model_name == 'oracle-trackonly':
+            model=f'deepAR-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_oracle-trackonly_t{prediction_length}'
+            modeldir = rootdir + model
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  Predictor.deserialize(Path(modeldir))
+            print(f'loading model...done!, ctx:{predictor.ctx}')
+        # deepAR
+        elif model_name == 'deepAR':
+            model=f'deepAR-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_deepar_t{prediction_length}'
+            modeldir = rootdir + model
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  Predictor.deserialize(Path(modeldir))
+            print(f'loading model...done!, ctx:{predictor.ctx}')
+
+        elif model_name == 'deepARW':
+            model=f'deepARW-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_deepar_t{prediction_length}'
+            modeldir = rootdir + model
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  Predictor.deserialize(Path(modeldir))
+            print(f'loading model...done!, ctx:{predictor.ctx}')
+
+        elif model_name == 'deepARW-oracle':
+            model=f'deepARW-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_oracle_t{prediction_length}'
+            modeldir = rootdir + model
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  Predictor.deserialize(Path(modeldir))
+            print(f'loading model...done!, ctx:{predictor.ctx}')
+                
+        # naive
+        elif model_name == 'naive':
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  NaivePredictor(freq= freq, prediction_length = prediction_length)
+        # zero, zero keeps the rank unchange
+        elif model_name == 'zero':
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  ZeroPredictor(freq= freq, prediction_length = prediction_length)
+        # arima
+        elif model_name == 'arima':
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  RForecastPredictor(method_name='arima',freq= freq, 
+                                            prediction_length = prediction_length,trunc_length=60)
+        else:
+            print(f'error: model {model_name} not support yet!')
+
+        return predictor
+
+#
 
 #calc rank
 def eval_rank_bytimediff(test_ds,tss,forecasts,prediction_length):
@@ -1707,7 +1799,8 @@ decode_carids = {}
 years = ['2013','2014','2015','2016','2017','2018','2019']
 events = [f'Indy500-{x}' for x in years]
 events_id={key:idx for idx, key in enumerate(events)}
-dbid = f'Indy500_{years[0]}_{years[-1]}'
+#dbid = f'Indy500_{years[0]}_{years[-1]}'
+dbid = f'Indy500_{years[0]}_{years[-1]}_v9'
 
 def init():
     global global_carids, laptime_data, global_start_offset, decode_carids
