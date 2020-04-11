@@ -87,7 +87,11 @@ COL_LAPS_INSTINT= 6
 COL_ELAPSEDTIME= 7
 COL_LAP2NEXTPIT= 8
 # share the memory
-COL_LAPSTATUS_PRED = 8   # for dynamic lapstatus predictions
+#COL_LAPSTATUS_PRED = 8   # for dynamic lapstatus predictions
+#LAPSTATUS SAVED in forecast_et
+COL_LAPSTATUS_SAVE = 0   #laptime no use
+COL_CAUTION_LAPS_INSTINT_SAVE=7
+COL_LAPS_INSTINT_SAVE= 8
 
 
 FEATURE_STATUS = 2
@@ -1607,6 +1611,8 @@ def dotest(config):
 
 def get_pitlaps(verbose = True, prediction_length=2):
     """
+    collect pitlaps info from COL_LAPSTATUS
+
     input:
         laptime_data    ;
         _test_event     ;
@@ -1701,6 +1707,349 @@ def get_nextpit(pitlaps, startlap):
     #return
     return nextpit_map, max(nextpit)
 
+def sim_init():
+    """
+    save the lapstatus in laptime_data
+    """
+    run_ts = _run_ts
+    for _data in laptime_data:
+        if events[_data[0]] != _test_event:
+            continue
+
+        #statistics on the ts length
+        ts_len = [ _entry.shape[1] for _entry in _data[2]]
+        max_lap = int(np.max(ts_len))
+
+        # process for each ts
+        for rowid in range(_data[2].shape[0]):
+            # rec[features, lapnumber] -> [laptime, rank, track_status, lap_status,timediff]]
+            rec = _data[2][rowid]
+
+            #save pit model related features
+            rec[COL_LAPSTATUS_SAVE,:] = rec[COL_LAPSTATUS, :]
+            rec[COL_CAUTION_LAPS_INSTINT_SAVE,:] = rec[COL_CAUTION_LAPS_INSTINT, :]
+            rec[COL_LAPS_INSTINT_SAVE, :] = rec[COL_LAPS_INSTINT, :]
+ 
+
+def update_lapstatus(startlap):
+    """
+    update the whole lapstatus data
+    """
+    run_ts = _run_ts
+    for _data in laptime_data:
+        if events[_data[0]] != _test_event:
+            continue
+
+        #statistics on the ts length
+        ts_len = [ _entry.shape[1] for _entry in _data[2]]
+        max_lap = int(np.max(ts_len))
+
+        # process for each ts
+        for rowid in range(_data[2].shape[0]):
+            # rec[features, lapnumber] -> [laptime, rank, track_status, lap_status,timediff]]
+            rec = _data[2][rowid]
+
+            update_onets(rec, startlap)
+
+
+def update_onets(rec, startlap):
+    """
+    update lapstatus after startlap basedon tsrec by pit prediction model
+
+    input:
+        tsrec   ; a ts with multiple features COL_XXX
+
+    return:
+        tsrec    ; updated for COL_LAPSTATUS, COL_CAUTION_LAPS_INSTINT, COL_LAPS_INSTINT
+
+    """
+    # this is the perfect empirical pit model for Indy500 2018
+    pit_model_all = [[33, 32, 35, 32, 35, 34, 35, 34, 37, 32, 37, 30, 33, 36, 35, 33, 36, 30, 31, 33, 36, 37, 35, 34, 34, 33, 37, 35, 39, 32, 36, 35, 34, 32, 36, 32, 31, 36, 33, 33, 35, 37, 40, 32, 32, 34, 35, 36, 33, 37, 35, 37, 34, 35, 39, 32, 31, 37, 32, 35, 36, 39, 35, 36, 34, 35, 33, 33, 34, 32, 33, 34],
+                [45, 44, 46, 44, 43, 46, 45, 43, 41, 48, 46, 43, 47, 45, 49, 44, 48, 42, 44, 46, 45, 45, 43, 44, 44, 43, 46]]
+    pit_model_top8 = [[33, 32, 35, 33, 36, 33, 36, 33, 37, 35, 36, 33, 37, 34],
+                 [46, 45, 43, 48, 46, 45, 45, 43]]
+    
+    pit_model = pit_model_all
+ 
+    # loop from startlap
+    nans, x= nan_helper(rec[_run_ts,:])
+    nan_count = np.sum(nans)             
+    recx = rec[:, ~np.isnan(rec[_run_ts,:])]
+    
+    # remove short ts
+    totallen = recx.shape[1]
+    if startlap >= totallen:
+        return
+    #totallen = tsrec.shape[1]
+
+    #reset status :startlap + 1
+    endpos = startlap + 1
+    rec[COL_LAPSTATUS,:] = 0
+    #rec[COL_LAPSTATUS,:endpos] = rec[COL_LAPSTATUS_SAVE, :endpos]
+    #rec[COL_CAUTION_LAPS_INSTINT,:endpos] = rec[COL_CAUTION_LAPS_INSTINT_SAVE, :endpos]
+    #rec[COL_LAPS_INSTINT, :endpos] = rec[COL_LAPS_INSTINT_SAVE, :endpos]
+    rec[COL_LAPSTATUS,:] = rec[COL_LAPSTATUS_SAVE, :]
+    rec[COL_CAUTION_LAPS_INSTINT,:] = rec[COL_CAUTION_LAPS_INSTINT_SAVE, :]
+    rec[COL_LAPS_INSTINT, :] = rec[COL_LAPS_INSTINT_SAVE, :]
+
+
+    #loop on predict nextpit pos
+    curpos = startlap
+    while True:
+        caution_laps_instint = int(rec[COL_CAUTION_LAPS_INSTINT, curpos])
+        laps_instint = int(rec[COL_LAPS_INSTINT, curpos])
+
+        retry = 0
+
+        while retry < 10:
+            if caution_laps_instint>10:
+                #use low model
+                pred_pit_laps = random.choice(pit_model[0])
+            else:
+                pred_pit_laps = random.choice(pit_model[1])
+    
+            if pred_pit_laps <= laps_instint:
+                retry += 1
+                if retry == 10:
+                    pred_pit_laps = laps_instint + 1
+                continue
+            else:
+                break
+
+        nextpos = curpos + pred_pit_laps - laps_instint
+
+        if nextpos >= totallen:
+            nextpos = totallen - 1
+ 
+            rec[COL_CAUTION_LAPS_INSTINT, curpos+1: nextpos+1] = caution_laps_instint
+            for _pos in range(curpos+1, nextpos+1):
+                rec[COL_LAPS_INSTINT, _pos] = rec[COL_LAPS_INSTINT, _pos - 1] + 1
+
+            break
+
+        else:
+            #if (pred_pit_laps > laps_instint) and (nextpos < totallen):
+            # a valid pit
+            rec[COL_LAPSTATUS, nextpos] = 1
+            rec[COL_CAUTION_LAPS_INSTINT, curpos+1: nextpos] = caution_laps_instint
+            rec[COL_CAUTION_LAPS_INSTINT, nextpos] = 0
+            for _pos in range(curpos+1, nextpos):
+                rec[COL_LAPS_INSTINT, _pos] = rec[COL_LAPS_INSTINT, _pos - 1] + 1
+            rec[COL_LAPS_INSTINT, nextpos] = 0
+
+        #go forward
+        curpos = nextpos
+
+    return
+
+
+
+
+# works on predicted lap status
+def sim_onestep_pred(predictor, prediction_length, freq, 
+                   startlap, endlap,
+                   oracle_mode = MODE_ORACLE,
+                   verbose = False
+                ):
+    """
+    input:
+        parameters  ; same as longterm_predict, make_dataset_byevent
+        startlap
+        endlap
+
+    return:
+        forecast    ; {}, carno -> 5 x totallen matrix 
+            0,: -> lapstatus
+            1,: -> true target
+            2,: -> pred target
+            3,  -> placeholder
+            4,  -> placeholder
+
+
+    """    
+    run_ts= _run_ts 
+    test_event = _test_event    
+    feature_mode = _feature_mode
+    context_ratio = _context_ratio
+    train_len = _train_len
+
+    start = pd.Timestamp("01-01-2019", freq=freq)  # can be different for each time series
+
+    test_set = []
+    forecasts_et = {}
+
+    _laptime_data = laptime_data.copy()
+
+    endpos = startlap + prediction_length + 1
+    while(endpos <= endlap + 1):
+        #make the testset
+        #_data: eventid, carids, datalist[carnumbers, features, lapnumber]->[laptime, rank, track, lap]]
+        _test = []
+        for _data in _laptime_data:
+
+            if events[_data[0]] != test_event:
+                #jump out
+                continue
+
+            #statistics on the ts length
+            ts_len = [ _entry.shape[1] for _entry in _data[2]]
+            max_len = int(np.max(ts_len))
+
+            # process for each ts
+            for rowid in range(_data[2].shape[0]):
+                # rec[features, lapnumber] -> [laptime, rank, track_status, lap_status,timediff]]
+                rec = _data[2][rowid].copy()
+                rec_raw = _data[2][rowid].copy()
+                
+                #remove nan(only tails)
+                nans, x= nan_helper(rec[run_ts,:])
+                nan_count = np.sum(nans)             
+                rec = rec[:, ~np.isnan(rec[run_ts,:])]
+                
+                # remove short ts
+                totallen = rec.shape[1]
+                if ( totallen < train_len + prediction_length):
+                    if verbose:
+                        print(f'a short ts: carid={_data[1][rowid]}，len={totallen}')
+                    continue                
+                
+                if endpos > totallen:
+                    continue
+
+                carno = _data[1][rowid]
+                carid = global_carids[_data[1][rowid]]
+                
+                static_cat = [carid]    
+                    
+                #first, get target a copy    
+                # target can be COL_XXSTATUS
+                #target_val = rec[run_ts,:].copy().astype(np.float32)
+
+                lap_status = rec[COL_LAPSTATUS, :].copy()
+                track_status = rec[COL_TRACKSTATUS, :].copy()
+                pitage_status = rec[COL_LAPS_INSTINT,:].copy()
+                # <3, totallen> 
+                if carno not in forecasts_et:
+                    forecasts_et[carno] = np.zeros((5, totallen))
+                    forecasts_et[carno][:,:] = np.nan
+                    forecasts_et[carno][0,:] = rec[COL_LAPSTATUS_SAVE, :].copy()
+                    forecasts_et[carno][1,:] = rec[run_ts,:].copy().astype(np.float32)
+                    forecasts_et[carno][2,:] = rec[run_ts,:].copy().astype(np.float32)
+
+
+                # forecasts_et will be updated by forecasts
+                target_val = forecasts_et[carno][2,:]
+                
+                # selection of features
+                if test_flag(oracle_mode, MODE_NOTRACK) or test_flag(oracle_mode, MODE_ORACLE_LAPONLY):                
+                    rec[COL_TRACKSTATUS, :] = 0
+                if test_flag(oracle_mode, MODE_NOLAP) or test_flag(oracle_mode, MODE_ORACLE_TRACKONLY):                
+                    rec[COL_LAPSTATUS, :] = 0
+
+                test_rec_cnt = 0
+
+                # RUN Prediction for single record
+                
+                track_rec = rec[COL_TRACKSTATUS, :endpos].copy()
+                lap_rec = rec[COL_LAPSTATUS, :endpos].copy()
+                pitage_rec = rec[COL_LAPS_INSTINT, :endpos].copy()
+                
+                caution_laps_instint = int(rec[COL_CAUTION_LAPS_INSTINT, endpos -prediction_length - 1])
+                laps_instint = int(rec[COL_LAPS_INSTINT, endpos -prediction_length - 1])
+                
+
+                # test mode
+                if test_flag(oracle_mode, MODE_TESTCURTRACK):
+                    # since nan does not work, use cur-val instead
+                    track_rec[-prediction_length:] = track_rec[-prediction_length - 1]
+                    #track_rec[-prediction_length:] = random.randint(0,1)
+                    #lap_rec[-prediction_length:] = lap_rec[-prediction_length - 1]
+                    lap_rec[-prediction_length:] = 0
+                    #for pitage, just assume there is no pit
+                    start_pitage = pitage_rec[-prediction_length - 1]
+                    pitage_rec[-prediction_length:] = np.array([x+start_pitage+1 for x in range(prediction_length)])
+                    
+                elif test_flag(oracle_mode, MODE_TESTZERO):
+                    #set prediction part as nan
+                    #track_rec[-prediction_length:] = np.nan
+                    #lap_rec[-prediction_length:] = np.nan
+                    track_rec[-prediction_length:] = 0
+                    lap_rec[-prediction_length:] = 0        
+                    #for pitage, just assume there is no pit
+                    start_pitage = pitage_rec[-prediction_length - 1]
+                    pitage_rec[-prediction_length:] = np.array([x+start_pitage+1 for x in range(prediction_length)])
+
+                if test_flag(oracle_mode, MODE_PREDPIT):
+
+                    #todo
+
+                    #lap_rec[-prediction_length:] = get_pit_model(caution_laps_instint,
+                    #                                            laps_instint,prediction_length)
+
+                    #for pitage, use the predicted lap info to update pitage
+                    start_pitage = pitage_rec[-prediction_length - 1]
+                    for pos in range(prediction_length):
+                        if lap_rec[-prediction_length + pos]==0:
+                            pitage_rec[-prediction_length + pos] = start_pitage+1
+                        else:
+                            #new pit
+                            start_pitage = 0
+                            pitage_rec[-prediction_length + pos] = start_pitage
+
+                # add to test set
+                if feature_mode == FEATURE_STATUS:
+                    _test.append({'target': target_val[:endpos].astype(np.float32), 
+                            'start': start, 
+                            'feat_static_cat': static_cat,
+                            'feat_dynamic_real': [track_rec,lap_rec]
+                             }
+                          )   
+                elif feature_mode == FEATURE_PITAGE:
+                    _test.append({'target': target_val[:endpos].astype(np.float32), 
+                                'start': start, 
+                                'feat_static_cat': static_cat,
+                                'feat_dynamic_real': [track_rec,lap_rec,pitage_rec]
+                                 }
+                              )   
+                test_rec_cnt += 1
+
+        # end of for each ts
+
+        # RUN Prediction here
+        test_ds = ListDataset(_test, freq=freq)
+
+        forecast_it, ts_it = make_evaluation_predictions(
+            dataset=test_ds,  # test dataset
+            predictor=predictor,  # predictor
+            num_samples=100,  # number of sample paths we want for evaluation
+        )
+
+        forecasts = list(forecast_it)
+        tss = list(ts_it)
+
+        #save the forecast results
+        ds_iter =  iter(test_ds)
+        for idx in range(len(test_ds)):
+            test_rec = next(ds_iter)
+            #global carid
+            carno = decode_carids[test_rec['feat_static_cat'][0]]
+
+            forecast_laptime_mean = np.mean(forecasts[idx].samples, axis=0).reshape((prediction_length))
+            
+            #update the forecasts , ready to use in the next prediction(regresive forecasting)
+            forecasts_et[carno][2, len(tss[idx]) - prediction_length:len(tss[idx])] = forecast_laptime_mean.copy()
+ 
+
+        #go forward
+        endpos += prediction_length
+
+
+    return forecasts_et
+
+
+
+
+# works on lapstatus ground truth
 def sim_onestep_ex(predictor, prediction_length, freq, 
                    startlap, endlap,
                    oracle_mode = MODE_ORACLE,
@@ -2163,7 +2512,69 @@ def get_acc_onestint(forecasts, startlap, nextpit, trim=2, currank = False):
 
     return rankret
 
+# pred sim
+def run_simulation_pred(predictor, prediction_length, freq, 
+                   datamode = MODE_ORACLE):
+    """
+    step:
+        1. init the lap status model
+        2. loop on each pit lap
+            1. onestep simulation
+            2. eval stint performance
+    """
 
+    rankret = []
+
+    # the ground truth
+    allpits, pitmat, maxlap = get_pitlaps()
+    sim_init()
+
+    for pitlap in allpits:
+        #1. update lap status
+        print(f'start pitlap: {pitlap}')
+        update_lapstatus(pitlap)
+
+        print(f'update lapstatus done.')
+        #2. get maxnext
+        allpits_pred, pitmat_pred, maxlap = get_pitlaps()
+        nextpit, maxnext = get_nextpit(pitmat_pred, pitlap)
+
+        #run one step sim from pitlap to maxnext
+        forecast = sim_onestep_pred(predictor, prediction_length, freq,
+                pitlap, maxnext,
+                oracle_mode = datamode
+                )
+
+        print(f'simulation done: {len(forecast)}')
+        # calc rank from this result
+        if _exp_id=='rank' or _exp_id=='timediff2rank':
+            forecasts_et = eval_stint_direct(forecast, 2)
+        elif _exp_id=='laptime2rank':
+            forecasts_et = eval_stint_bylaptime(forecast, 2, global_start_offset[_test_event])
+
+        else:
+            print(f'Error, {_exp_id} evaluation not support yet')
+            break
+
+        # evaluate for this stint
+        ret = get_acc_onestint(forecasts_et, pitlap, nextpit)
+        rankret.extend(ret)
+
+
+    #add to df
+    df = pd.DataFrame(rankret, columns =['carno', 'startlap', 'startrank', 
+                                         'endrank', 'diff', 'sign',
+                                         'pred_endrank', 'pred_diff', 'pred_sign',
+                                        ])
+
+    return df
+
+
+
+
+
+
+# oracle sim
 def run_simulation(predictor, prediction_length, freq, 
                    datamode = MODE_ORACLE):
     """
@@ -2919,7 +3330,7 @@ decode_carids = {}
 years = ['2013','2014','2015','2016','2017','2018','2019']
 events = [f'Indy500-{x}' for x in years]
 events_id={key:idx for idx, key in enumerate(events)}
-dbid = f'Indy500_{years[0]}_{years[-1]}'
+dbid = f'Indy500_{years[0]}_{years[-1]}_v9'
 
 def init():
     global global_carids, laptime_data, global_start_offset, decode_carids
