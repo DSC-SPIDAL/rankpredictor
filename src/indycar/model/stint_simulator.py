@@ -23,7 +23,7 @@
 # 
 
 # In[1]:
-
+import ipdb
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -1748,11 +1748,11 @@ def update_lapstatus(startlap):
         for rowid in range(_data[2].shape[0]):
             # rec[features, lapnumber] -> [laptime, rank, track_status, lap_status,timediff]]
             rec = _data[2][rowid]
+            carno = _data[1][rowid]
+            update_onets(rec, startlap, carno)
 
-            update_onets(rec, startlap)
 
-
-def update_onets(rec, startlap):
+def update_onets(rec, startlap, carno):
     """
     update lapstatus after startlap basedon tsrec by pit prediction model
 
@@ -1769,7 +1769,8 @@ def update_onets(rec, startlap):
     pit_model_top8 = [[33, 32, 35, 33, 36, 33, 36, 33, 37, 35, 36, 33, 37, 34],
                  [46, 45, 43, 48, 46, 45, 45, 43]]
     
-    pit_model = pit_model_all
+    #pit_model = pit_model_all
+    pit_model = pit_model_top8
  
     # loop from startlap
     nans, x= nan_helper(rec[_run_ts,:])
@@ -1781,17 +1782,19 @@ def update_onets(rec, startlap):
     if startlap >= totallen:
         return
     #totallen = tsrec.shape[1]
+    #ipdb.set_trace()
 
     #reset status :startlap + 1
     endpos = startlap + 1
     rec[COL_LAPSTATUS,:] = 0
-    #rec[COL_LAPSTATUS,:endpos] = rec[COL_LAPSTATUS_SAVE, :endpos]
-    #rec[COL_CAUTION_LAPS_INSTINT,:endpos] = rec[COL_CAUTION_LAPS_INSTINT_SAVE, :endpos]
-    #rec[COL_LAPS_INSTINT, :endpos] = rec[COL_LAPS_INSTINT_SAVE, :endpos]
-    rec[COL_LAPSTATUS,:] = rec[COL_LAPSTATUS_SAVE, :]
-    rec[COL_CAUTION_LAPS_INSTINT,:] = rec[COL_CAUTION_LAPS_INSTINT_SAVE, :]
-    rec[COL_LAPS_INSTINT, :] = rec[COL_LAPS_INSTINT_SAVE, :]
+    rec[COL_LAPSTATUS,:endpos] = rec[COL_LAPSTATUS_SAVE, :endpos]
+    rec[COL_CAUTION_LAPS_INSTINT,:endpos] = rec[COL_CAUTION_LAPS_INSTINT_SAVE, :endpos]
+    rec[COL_LAPS_INSTINT, :endpos] = rec[COL_LAPS_INSTINT_SAVE, :endpos]
+    #rec[COL_LAPSTATUS,:] = rec[COL_LAPSTATUS_SAVE, :]
+    #rec[COL_CAUTION_LAPS_INSTINT,:] = rec[COL_CAUTION_LAPS_INSTINT_SAVE, :]
+    #rec[COL_LAPS_INSTINT, :] = rec[COL_LAPS_INSTINT_SAVE, :]
 
+    debug_report('start update_onets', rec[COL_LAPSTATUS], startlap, carno)
 
     #loop on predict nextpit pos
     curpos = startlap
@@ -1802,7 +1805,7 @@ def update_onets(rec, startlap):
         retry = 0
 
         while retry < 10:
-            if caution_laps_instint>10:
+            if caution_laps_instint <= 10:
                 #use low model
                 pred_pit_laps = random.choice(pit_model[0])
             else:
@@ -1840,10 +1843,60 @@ def update_onets(rec, startlap):
         #go forward
         curpos = nextpos
 
+    debug_report('after update_onets', rec[COL_LAPSTATUS], startlap, carno)
+
     return
 
 
+#debug tracking status
+#status matrix  :  laps x ( endCol x 5 features)
+#features: target, lapstatus, lap_instint, caution_instint, trackstatus
+_status_mat = {}  # stepid -> status matrix
+def debug_report_mat(startlap, maxnext):
+    """
+    output the status of the simulation
 
+    """
+    fixedWidth = 5
+    endCol = 4
+
+    run_ts = _run_ts
+    for _data in laptime_data:
+        if events[_data[0]] != _test_event:
+            continue
+
+        #statistics on the ts length
+        ts_len = [ _entry.shape[1] for _entry in _data[2]]
+        max_lap = int(np.max(ts_len))
+
+        #header  carno | lap#...
+        #fixed width
+
+        # process for each ts
+        for rowid in range(_data[2].shape[0]):
+            # rec[features, lapnumber] -> [laptime, rank, track_status, lap_status,timediff]]
+            rec = _data[2][rowid]
+
+_debug_carlist = []
+#_debug_carlist = [12]
+def debug_report_ts(msg, rec, startlap, carno, col= COL_LAPSTATUS):
+    if carno not in _debug_carlist:
+        return
+    print(f'--------- {msg}: {startlap} ----------')
+    print(rec[col, : startlap + 1])
+    print('='*10)
+    print(rec[col, startlap + 1:])
+def debug_report(msg, rec, startlap, carno):
+    if carno not in _debug_carlist:
+        return
+    print(f'--------- {msg}: {startlap} ----------')
+    print(rec[: startlap + 1])
+    print('='*10)
+    print(rec[startlap + 1:])
+
+def debug_print(msg):
+    if len(_debug_carlist) > 0:
+        print(msg)
 
 # works on predicted lap status
 def sim_onestep_pred(predictor, prediction_length, freq, 
@@ -1881,7 +1934,7 @@ def sim_onestep_pred(predictor, prediction_length, freq,
     _laptime_data = laptime_data.copy()
 
     endpos = startlap + prediction_length + 1
-    while(endpos <= endlap + 1):
+    while(endpos <= endlap + prediction_length + 1):
         #make the testset
         #_data: eventid, carids, datalist[carnumbers, features, lapnumber]->[laptime, rank, track, lap]]
         _test = []
@@ -1894,6 +1947,8 @@ def sim_onestep_pred(predictor, prediction_length, freq,
             #statistics on the ts length
             ts_len = [ _entry.shape[1] for _entry in _data[2]]
             max_len = int(np.max(ts_len))
+
+            #ipdb.set_trace()
 
             # process for each ts
             for rowid in range(_data[2].shape[0]):
@@ -2013,6 +2068,10 @@ def sim_onestep_pred(predictor, prediction_length, freq,
                               )   
                 test_rec_cnt += 1
 
+                #debug
+                #debug_report('simu_onestep', rec, startlap, carno, col= _run_ts)
+                debug_report(f'simu_onestep: {startlap}-{endpos}', target_val[:endpos], startlap, carno)
+
         # end of for each ts
 
         # RUN Prediction here
@@ -2085,7 +2144,8 @@ def sim_onestep_ex(predictor, prediction_length, freq,
     _laptime_data = laptime_data.copy()
 
     endpos = startlap + prediction_length + 1
-    while(endpos <= endlap + 1):
+    #while(endpos <= endlap + 1):
+    while(endpos <= endlap + prediction_length + 1):
         #make the testset
         #_data: eventid, carids, datalist[carnumbers, features, lapnumber]->[laptime, rank, track, lap]]
         _test = []
@@ -2139,6 +2199,7 @@ def sim_onestep_ex(predictor, prediction_length, freq,
                     forecasts_et[carno][0,:] = rec[COL_LAPSTATUS, :].copy()
                     forecasts_et[carno][1,:] = rec[run_ts,:].copy().astype(np.float32)
                     forecasts_et[carno][2,:] = rec[run_ts,:].copy().astype(np.float32)
+                    #forecasts_et[carno][2,:endpos] = rec[run_ts,:endpos].copy().astype(np.float32)
                 
                 # forecasts_et will be updated by forecasts
                 target_val = forecasts_et[carno][2,:]
@@ -2246,6 +2307,9 @@ def sim_onestep_ex(predictor, prediction_length, freq,
         #go forward
         endpos += prediction_length
 
+    #clear the unpred part
+    for carno in forecasts_et.keys():
+        forecasts_et[carno][2, endlap+1:] = np.nan
 
     return forecasts_et
 
@@ -2456,6 +2520,76 @@ def sim_onestep(predictor, prediction_length, freq,
 
     return forecasts_et
 
+# pred pit differs to true pit
+def get_acc_onestint_pred(forecasts, startlap, nextpit, nextpit_pred, trim=2, currank = False):
+    """
+    input:
+        trim     ; steady lap of the rank (before pit_inlap, pit_outlap)
+        forecasts;  carno -> [5,totallen]
+                0; lap_status
+                3; true_rank
+                4; pred_rank
+        startlap ; eval for the stint start from startlap only
+        nextpit  ; array of next pitstop for all cars
+    output:
+        carno, stintid, startrank, endrank, diff, sign
+
+    """
+    rankret = []
+    for carno in forecasts.keys():
+        lapnum = len(forecasts[carno][1,:])
+        true_rank = forecasts[carno][3,:]
+        pred_rank = forecasts[carno][4,:]
+
+        # check the lap status
+        if ((startlap < lapnum) and (forecasts[carno][0, startlap] == 1)):
+
+            startrank = true_rank[startlap-trim]
+            
+            if not carno in nextpit:
+                continue
+
+            pitpos = nextpit[carno]
+            if np.isnan(pitpos):
+                continue
+
+            if not carno in nextpit_pred:
+                continue
+
+            pitpos_pred = nextpit_pred[carno]
+            if np.isnan(pitpos_pred):
+                continue
+
+            endrank = true_rank[pitpos-trim]
+            #endrank_pred = true_rank[pitpos_pred-trim]
+
+
+            diff = endrank - startrank
+            sign = get_sign(diff)
+
+
+
+            if currank:
+                #force into currank model, zero doesn't work here
+                pred_endrank = startrank
+                pred_diff = pred_endrank - startrank
+                pred_sign = get_sign(pred_diff)
+
+            else:
+                pred_endrank = pred_rank[pitpos_pred-trim]
+                pred_diff = pred_endrank - startrank
+                pred_sign = get_sign(pred_diff)
+
+            rankret.append([carno, startlap, startrank, 
+                            endrank, diff, sign,
+                            pred_endrank, pred_diff, pred_sign
+                            ])
+
+    return rankret
+
+
+
+# works when pred pitstop == true pitstop
 def get_acc_onestint(forecasts, startlap, nextpit, trim=2, currank = False):
     """
     input:
@@ -2531,21 +2665,29 @@ def run_simulation_pred(predictor, prediction_length, freq,
 
     for pitlap in allpits:
         #1. update lap status
-        print(f'start pitlap: {pitlap}')
+        debug_print(f'start pitlap: {pitlap}')
         update_lapstatus(pitlap)
 
-        print(f'update lapstatus done.')
+        debug_print(f'update lapstatus done.')
         #2. get maxnext
         allpits_pred, pitmat_pred, maxlap = get_pitlaps()
-        nextpit, maxnext = get_nextpit(pitmat_pred, pitlap)
+        nextpit, maxnext = get_nextpit(pitmat, pitlap)
+        nextpit_pred, maxnext_pred = get_nextpit(pitmat_pred, pitlap)
+
+        #debug
+        #_debug_carlist
+        if 12 in nextpit and 12 in nextpit_pred:
+            #print('nextpit:', nextpit[12], nextpit_pred[12], 'maxnext:', maxnext, maxnext_pred)
+            debugstr = f'nextpit: {nextpit[12]}, {nextpit_pred[12]}, maxnext: {maxnext}, {maxnext_pred}'
+            debug_print(debugstr)
 
         #run one step sim from pitlap to maxnext
         forecast = sim_onestep_pred(predictor, prediction_length, freq,
-                pitlap, maxnext,
+                pitlap, maxnext_pred,
                 oracle_mode = datamode
                 )
 
-        print(f'simulation done: {len(forecast)}')
+        debug_print(f'simulation done: {len(forecast)}')
         # calc rank from this result
         if _exp_id=='rank' or _exp_id=='timediff2rank':
             forecasts_et = eval_stint_direct(forecast, 2)
@@ -2557,7 +2699,7 @@ def run_simulation_pred(predictor, prediction_length, freq,
             break
 
         # evaluate for this stint
-        ret = get_acc_onestint(forecasts_et, pitlap, nextpit)
+        ret = get_acc_onestint_pred(forecasts_et, pitlap, nextpit, nextpit_pred)
         rankret.extend(ret)
 
 
