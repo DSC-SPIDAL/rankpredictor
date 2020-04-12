@@ -1752,9 +1752,6 @@ def update_lapstatus(startlap):
             update_onets(rec, startlap, carno)
 
 
-# difference test on pit strategy
-_pitstrategy_testcar = 12
-_pitstrategy_lowmode = True
 def update_onets(rec, startlap, carno):
     """
     update lapstatus after startlap basedon tsrec by pit prediction model
@@ -1805,37 +1802,22 @@ def update_onets(rec, startlap, carno):
         caution_laps_instint = int(rec[COL_CAUTION_LAPS_INSTINT, curpos])
         laps_instint = int(rec[COL_LAPS_INSTINT, curpos])
 
+        retry = 0
 
-        if carno == _pitstrategy_testcar:
-            # check strategy for test car
-            if _pitstrategy_lowmode:
-                if caution_laps_instint <= 10:
-                    #use low model
-                    pred_pit_laps = min(pit_model[0])
-                else:
-                    pred_pit_laps = min(pit_model[1])
+        while retry < 10:
+            if caution_laps_instint <= 10:
+                #use low model
+                pred_pit_laps = random.choice(pit_model[0])
             else:
-                if caution_laps_instint <= 10:
-                    #use low model
-                    pred_pit_laps = max(pit_model[0])
-                else:
-                    pred_pit_laps = max(pit_model[1])
-        else:
-            retry = 0
-            while retry < 10:
-                if caution_laps_instint <= 10:
-                    #use low model
-                    pred_pit_laps = random.choice(pit_model[0])
-                else:
-                    pred_pit_laps = random.choice(pit_model[1])
+                pred_pit_laps = random.choice(pit_model[1])
     
-                if pred_pit_laps <= laps_instint:
-                    retry += 1
-                    if retry == 10:
-                        pred_pit_laps = laps_instint + 1
-                    continue
-                else:
-                    break
+            if pred_pit_laps <= laps_instint:
+                retry += 1
+                if retry == 10:
+                    pred_pit_laps = laps_instint + 1
+                continue
+            else:
+                break
 
         nextpos = curpos + pred_pit_laps - laps_instint
 

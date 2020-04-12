@@ -1752,9 +1752,6 @@ def update_lapstatus(startlap):
             update_onets(rec, startlap, carno)
 
 
-# difference test on pit strategy
-_pitstrategy_testcar = 12
-_pitstrategy_lowmode = True
 def update_onets(rec, startlap, carno):
     """
     update lapstatus after startlap basedon tsrec by pit prediction model
@@ -1805,37 +1802,22 @@ def update_onets(rec, startlap, carno):
         caution_laps_instint = int(rec[COL_CAUTION_LAPS_INSTINT, curpos])
         laps_instint = int(rec[COL_LAPS_INSTINT, curpos])
 
+        retry = 0
 
-        if carno == _pitstrategy_testcar:
-            # check strategy for test car
-            if _pitstrategy_lowmode:
-                if caution_laps_instint <= 10:
-                    #use low model
-                    pred_pit_laps = min(pit_model[0])
-                else:
-                    pred_pit_laps = min(pit_model[1])
+        while retry < 10:
+            if caution_laps_instint <= 10:
+                #use low model
+                pred_pit_laps = random.choice(pit_model[0])
             else:
-                if caution_laps_instint <= 10:
-                    #use low model
-                    pred_pit_laps = max(pit_model[0])
-                else:
-                    pred_pit_laps = max(pit_model[1])
-        else:
-            retry = 0
-            while retry < 10:
-                if caution_laps_instint <= 10:
-                    #use low model
-                    pred_pit_laps = random.choice(pit_model[0])
-                else:
-                    pred_pit_laps = random.choice(pit_model[1])
+                pred_pit_laps = random.choice(pit_model[1])
     
-                if pred_pit_laps <= laps_instint:
-                    retry += 1
-                    if retry == 10:
-                        pred_pit_laps = laps_instint + 1
-                    continue
-                else:
-                    break
+            if pred_pit_laps <= laps_instint:
+                retry += 1
+                if retry == 10:
+                    pred_pit_laps = laps_instint + 1
+                continue
+            else:
+                break
 
         nextpos = curpos + pred_pit_laps - laps_instint
 
@@ -1952,7 +1934,8 @@ def sim_onestep_pred(predictor, prediction_length, freq,
     _laptime_data = laptime_data.copy()
 
     endpos = startlap + prediction_length + 1
-    while(endpos <= endlap + prediction_length + 1):
+    #while(endpos <= endlap + prediction_length + 1):
+    while(endpos <= endlap + prediction_length):
         #make the testset
         #_data: eventid, carids, datalist[carnumbers, features, lapnumber]->[laptime, rank, track, lap]]
         _test = []
@@ -2088,7 +2071,7 @@ def sim_onestep_pred(predictor, prediction_length, freq,
 
                 #debug
                 #debug_report('simu_onestep', rec, startlap, carno, col= _run_ts)
-                debug_report(f'simu_onestep: {startlap}-{endpos}', target_val[:endpos], startlap, carno)
+                debug_report(f'simu_onestep: {startlap}-{endlap}, endpos={endpos}', target_val[:endpos], startlap, carno)
 
         # end of for each ts
 
@@ -2605,6 +2588,58 @@ def get_acc_onestint_pred(forecasts, startlap, nextpit, nextpit_pred, trim=2, cu
 
     return rankret
 
+# pred pit differs to true pit
+def get_acc_onestep_shortterm(forecasts, startlap, endlap, trim=0, currank = False):
+    """
+    input:
+        trim     ; steady lap of the rank (before pit_inlap, pit_outlap)
+        forecasts;  carno -> [5,totallen]
+                0; lap_status
+                3; true_rank
+                4; pred_rank
+        startlap ; eval for the stint start from startlap only
+        nextpit  ; array of next pitstop for all cars
+    output:
+        carno, stintid, startrank, endrank, diff, sign
+
+    """
+    rankret = []
+    for carno in forecasts.keys():
+        lapnum = len(forecasts[carno][1,:])
+        true_rank = forecasts[carno][3,:]
+        pred_rank = forecasts[carno][4,:]
+
+        # check the lap status
+        #if ((startlap < lapnum) and (forecasts[carno][0, startlap] == 1)):
+        if startlap < lapnum:
+
+            startrank = true_rank[startlap-trim]
+            if np.isnan(endlap):
+                continue
+
+            endrank = true_rank[endlap-trim]
+
+            diff = endrank - startrank
+            sign = get_sign(diff)
+
+            if currank:
+                #force into currank model, zero doesn't work here
+                pred_endrank = startrank
+                pred_diff = pred_endrank - startrank
+                pred_sign = get_sign(pred_diff)
+
+            else:
+                pred_endrank = pred_rank[endlap-trim]
+                pred_diff = pred_endrank - startrank
+                pred_sign = get_sign(pred_diff)
+
+            rankret.append([carno, startlap, startrank, 
+                            endrank, diff, sign,
+                            pred_endrank, pred_diff, pred_sign
+                            ])
+
+    return rankret
+
 
 
 # works when pred pitstop == true pitstop
@@ -2718,6 +2753,61 @@ def run_simulation_pred(predictor, prediction_length, freq,
 
         # evaluate for this stint
         ret = get_acc_onestint_pred(forecasts_et, pitlap, nextpit, nextpit_pred)
+        rankret.extend(ret)
+
+
+    #add to df
+    df = pd.DataFrame(rankret, columns =['carno', 'startlap', 'startrank', 
+                                         'endrank', 'diff', 'sign',
+                                         'pred_endrank', 'pred_diff', 'pred_sign',
+                                        ])
+
+    return df
+
+#prediction of shorterm + pred pit model
+def run_simulation_shortterm(predictor, prediction_length, freq, 
+                   datamode = MODE_ORACLE):
+    """
+    step:
+        1. init the lap status model
+        2. loop on each pit lap
+            1. onestep simulation
+            2. eval stint performance
+    """
+
+    rankret = []
+
+    # the ground truth
+    allpits, pitmat, maxlap = get_pitlaps()
+    sim_init()
+
+    for pitlap in range(10, maxlap-prediction_length):
+        #1. update lap status
+        debug_print(f'start pitlap: {pitlap}')
+        update_lapstatus(pitlap)
+
+        debug_print(f'update lapstatus done.')
+        #run one step sim from pitlap to maxnext
+        forecast = sim_onestep_pred(predictor, prediction_length, freq,
+                pitlap, pitlap + prediction_length,
+                oracle_mode = datamode
+                )
+
+        debug_print(f'simulation done: {len(forecast)}')
+        # calc rank from this result
+        if _exp_id=='rank' or _exp_id=='timediff2rank':
+            forecasts_et = eval_stint_direct(forecast, 2)
+        elif _exp_id=='laptime2rank':
+            forecasts_et = eval_stint_bylaptime(forecast, 2, global_start_offset[_test_event])
+
+        else:
+            print(f'Error, {_exp_id} evaluation not support yet')
+            break
+
+        # evaluate for this stint
+        #ret = get_acc_onestint_pred(forecasts_et, pitlap, nextpit, nextpit_pred)
+        ret = get_acc_onestep_shortterm(forecasts_et, pitlap, pitlap+prediction_length)
+
         rankret.extend(ret)
 
 
@@ -3568,7 +3658,40 @@ def get_evalret(df):
     
     return acc, mae, rmse, r2
 
+def get_evalret_shortterm(df):
+    maxlap = np.max(df['startlap'].values)
+    minlap = np.min(df['startlap'].values)
+ 
+    top1 = df[df['endrank']==0]
+    top1_pred = df[df['pred_endrank']==0]
 
+    correct = top1_pred[top1_pred['pred_endrank']==top1_pred['endrank']]
+    acc = len(correct)/len(top1_pred)
+
+    rmse = mean_squared_error(df['pred_endrank'].values , df['endrank'].values)
+    mae = mean_absolute_error(df['pred_endrank'].values , df['endrank'].values)
+    r2 = r2_score(df['pred_endrank'].values , df['endrank'].values)
+    mae1 = np.sum(np.abs(df['pred_endrank'].values  - df['endrank'].values))
+    mae1 = mae1/ (maxlap -minlap +1)
+
+
+    #naive result
+    top1_naive = df[df['startrank']==0]
+    n_correct = top1_naive[top1_naive['startrank']==top1_naive['endrank']]
+    acc_naive = len(n_correct)/len(top1_naive)
+    mae_naive = np.mean(np.abs(df['diff'].values))
+
+    mae_naive1 = np.sum(np.abs(df['diff'].values))
+    mae_naive1 = mae_naive1 / (maxlap - minlap + 1)
+
+
+    #print(f'pred: acc={acc}, mae={mae},{mae1}, rmse={rmse},r2={r2}, acc_naive={acc_naive}, mae_naive={mae_naive}, {mae_naive1}')
+    print(f'pred: acc={acc}, mae={mae}, rmse={rmse},r2={r2}, acc_naive={acc_naive}, mae_naive={mae_naive}')
+    
+    return acc, mae, rmse, r2
+
+
+#
 # In[20]:
 def mytest():
 
