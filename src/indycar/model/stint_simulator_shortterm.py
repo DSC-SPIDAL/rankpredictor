@@ -1751,7 +1751,7 @@ def update_lapstatus(startlap):
             carno = _data[1][rowid]
             update_onets(rec, startlap, carno)
 
-
+_pitmodel_top8 = True
 def update_onets(rec, startlap, carno):
     """
     update lapstatus after startlap basedon tsrec by pit prediction model
@@ -1769,8 +1769,10 @@ def update_onets(rec, startlap, carno):
     pit_model_top8 = [[33, 32, 35, 33, 36, 33, 36, 33, 37, 35, 36, 33, 37, 34],
                  [46, 45, 43, 48, 46, 45, 45, 43]]
     
-    #pit_model = pit_model_all
-    pit_model = pit_model_top8
+    if _pitmodel_top8:
+        pit_model = pit_model_top8
+    else:
+        pit_model = pit_model_all
  
     # loop from startlap
     nans, x= nan_helper(rec[_run_ts,:])
