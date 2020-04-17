@@ -24,7 +24,8 @@ from gluonts.distribution import DistributionOutput, StudentTOutput
 from gluonts.model.estimator import GluonEstimator
 from gluonts.model.predictor import Predictor, RepresentableBlockPredictor
 from gluonts.trainer import Trainer
-from gluonts.transform import Identity
+#from gluonts.transform import Identity, RemoveFields
+from gluonts.transform import RemoveFields
 from gluonts.transform import (
     Chain,
     ExpectedNumInstanceSampler,
@@ -151,7 +152,10 @@ class MLPEstimator(GluonEstimator):
     # transformation that includes time features, age feature, observed values
     # indicator, ...
     def create_transformation(self) -> Transformation:
-        return Identity()
+        return Chain(
+                [RemoveFields(field_names=['del'])]
+                )
+            #Identity()
 
     # defines the network, we get to see one batch to initialize it.
     # the network should return at least one tensor that is used as a loss to minimize in the training loop.
