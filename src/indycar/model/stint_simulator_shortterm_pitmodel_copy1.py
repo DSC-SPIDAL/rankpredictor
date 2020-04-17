@@ -1879,7 +1879,6 @@ def debug_print(msg):
 def sim_onestep_pred(predictor, prediction_length, freq, 
                    startlap, endlap,
                    oracle_mode = MODE_ORACLE,
-                   sample_cnt = 100,
                    verbose = False
                 ):
     """
@@ -1908,7 +1907,6 @@ def sim_onestep_pred(predictor, prediction_length, freq,
 
     test_set = []
     forecasts_et = {}
-    forecasts_samples = {}
 
     _laptime_data = laptime_data.copy()
 
@@ -1970,8 +1968,7 @@ def sim_onestep_pred(predictor, prediction_length, freq,
                     forecasts_et[carno][0,:] = rec[COL_LAPSTATUS_SAVE, :].copy()
                     forecasts_et[carno][1,:] = rec[run_ts,:].copy().astype(np.float32)
                     forecasts_et[carno][2,:] = rec[run_ts,:].copy().astype(np.float32)
-                    # for p-risk
-                    forecasts_samples[carno] = np.zeros((sample_cnt))
+
 
                 # forecasts_et will be updated by forecasts
                 target_val = forecasts_et[carno][2,:]
@@ -2061,7 +2058,7 @@ def sim_onestep_pred(predictor, prediction_length, freq,
         forecast_it, ts_it = make_evaluation_predictions(
             dataset=test_ds,  # test dataset
             predictor=predictor,  # predictor
-            num_samples=sample_cnt,  # number of sample paths we want for evaluation
+            num_samples=100,  # number of sample paths we want for evaluation
         )
 
         forecasts = list(forecast_it)
@@ -2078,16 +2075,15 @@ def sim_onestep_pred(predictor, prediction_length, freq,
             
             #update the forecasts , ready to use in the next prediction(regresive forecasting)
             forecasts_et[carno][2, len(tss[idx]) - prediction_length:len(tss[idx])] = forecast_laptime_mean.copy()
-
-            #save the samples, the farest samples
-            forecasts_samples[carno][:] = forecasts[idx].samples[:,-1].reshape(-1)
  
 
         #go forward
         endpos += prediction_length
 
 
-    return forecasts_et, forecasts_samples
+    return forecasts_et
+
+
 
 
 # works on lapstatus ground truth
@@ -2716,10 +2712,9 @@ def run_simulation_pred(predictor, prediction_length, freq,
             debug_print(debugstr)
 
         #run one step sim from pitlap to maxnext
-        forecast, forecast_samples = sim_onestep_pred(predictor, prediction_length, freq,
+        forecast = sim_onestep_pred(predictor, prediction_length, freq,
                 pitlap, maxnext_pred,
-                oracle_mode = datamode,
-                sample_cnt = 100
+                oracle_mode = datamode
                 )
 
         debug_print(f'simulation done: {len(forecast)}')
@@ -2748,8 +2743,7 @@ def run_simulation_pred(predictor, prediction_length, freq,
 
 #prediction of shorterm + pred pit model
 def run_simulation_shortterm(predictor, prediction_length, freq, 
-                   datamode = MODE_ORACLE, 
-                   sample_cnt = 100):
+                   datamode = MODE_ORACLE):
     """
     step:
         1. init the lap status model
@@ -2764,10 +2758,6 @@ def run_simulation_shortterm(predictor, prediction_length, freq,
     allpits, pitmat, maxlap = get_pitlaps()
     sim_init()
 
-    #init samples array
-    full_samples = {}
-    full_tss = {}
-
     for pitlap in range(10, maxlap-prediction_length):
         #1. update lap status
         debug_print(f'start pitlap: {pitlap}')
@@ -2775,10 +2765,9 @@ def run_simulation_shortterm(predictor, prediction_length, freq,
 
         debug_print(f'update lapstatus done.')
         #run one step sim from pitlap to maxnext
-        forecast, forecast_samples = sim_onestep_pred(predictor, prediction_length, freq,
+        forecast = sim_onestep_pred(predictor, prediction_length, freq,
                 pitlap, pitlap + prediction_length,
-                oracle_mode = datamode,
-                sample_cnt = sample_cnt
+                oracle_mode = datamode
                 )
 
         debug_print(f'simulation done: {len(forecast)}')
@@ -2798,10 +2787,6 @@ def run_simulation_shortterm(predictor, prediction_length, freq,
 
         rankret.extend(ret)
 
-        # add to full_samples
-        eval_full_samples(pitlap + prediction_length,
-                forecast_samples, forecast, 
-                full_samples, full_tss)
 
     #add to df
     df = pd.DataFrame(rankret, columns =['carno', 'startlap', 'startrank', 
@@ -2809,7 +2794,7 @@ def run_simulation_shortterm(predictor, prediction_length, freq,
                                          'pred_endrank', 'pred_diff', 'pred_sign',
                                         ])
 
-    return df, full_samples, full_tss
+    return df
 
 
 
@@ -3285,67 +3270,6 @@ def eval_stint_bylaptime(forecasts_et, prediction_length, start_offset):
         forecasts_et[carno][4,:] = pred_rank[caridmap[carno],:lapnum]
     
     return forecasts_et
-
-#
-def eval_full_samples(lap, forecast_samples, forecast, full_samples, full_tss, maxlap=200):
-    """
-    input:
-        lap  ; lap number
-        forecast_samples; {} cano -> samples ore pred target
-        forecast    ; {}, carno -> 5 x totallen matrix 
-            1,: -> true target
-            2,: -> pred target
-    return:
-        full_samples
-        full_tss
-    """
-
-    #get car list for this lap
-    carlist = list(forecast.keys())
-    #print('carlist:', carlist)
-
-    caridmap={key:idx for idx, key in enumerate(carlist)}    
-
-    #convert to elapsedtime
-    #todo, Indy500 - > 200 max laps
-    samplecnt = len(forecast_samples[carlist[0]])
-    
-    #diff_time = np.zeros((len(carlist), 1))
-    diff_time = np.zeros((len(carlist), maxlen))
-    diff_time_hat = np.zeros((len(carlist), samplecnt))
-    diff_time[:,:] = np.nan
-    diff_time_hat[:,:] = np.nan
-    
-    for carno in carlist:
-        #diff_time[caridmap[carno],0] = forecast[carno][1, lap]
-        diff_time[caridmap[carno],:] = forecast[carno][1, :]
-        
-        diff_time_hat[caridmap[carno],:] = forecast_samples[carno]
-        
-
-    #calculate rank, support nan
-    idx = np.argsort(diff_time, axis=0)
-    true_rank = np.argsort(idx, axis=0)
-
-    idx = np.argsort(diff_time_hat, axis=0)
-    pred_rank = np.argsort(idx, axis=0)
-        
-    # save the rank back
-    for carno in carlist:
-        if carno not in full_tss:
-            #init
-            full_tss[carno] = np.zeros((maxlap))
-            full_samples[carno] = np.zeros((samplecnt, maxlap))
-            full_tss[carno][:] = np.nan
-            full_samples[carno][:,:] = np.nan
-            full_tss[carno][:lap] = true_rank[caridmap[carno]][:lap]
-
-        full_tss[carno][lap] = true_rank[caridmap[carno]][lap]
-        
-        full_samples[carno][:, lap] = pred_rank[caridmap[carno],:]
-    
-    return 
-
 
 def eval_stint_direct(forecasts_et, prediction_length):
     """
