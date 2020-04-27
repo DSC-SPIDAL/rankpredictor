@@ -36,7 +36,7 @@ import mxnet as mx
 from mxnet import gluon
 import pickle
 import json
-import random
+import random, math
 import inspect
 from scipy import stats
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
@@ -2700,7 +2700,8 @@ def run_simulation_pred(predictor, prediction_length, freq,
     for pitlap in allpits:
         #1. update lap status
         debug_print(f'start pitlap: {pitlap}')
-        update_lapstatus(pitlap)
+        if not (isinstance(_pitmodel, str) and _pitmodel == 'oracle'):
+            update_lapstatus(pitlap)
 
         debug_print(f'update lapstatus done.')
         #2. get maxnext
@@ -2771,7 +2772,8 @@ def run_simulation_shortterm(predictor, prediction_length, freq,
     for pitlap in range(10, maxlap-prediction_length):
         #1. update lap status
         debug_print(f'start pitlap: {pitlap}')
-        update_lapstatus(pitlap)
+        if not (isinstance(_pitmodel, str) and _pitmodel == 'oracle'):
+            update_lapstatus(pitlap)
 
         debug_print(f'update lapstatus done.')
         #run one step sim from pitlap to maxnext
@@ -3311,14 +3313,16 @@ def eval_full_samples(lap, forecast_samples, forecast, full_samples, full_tss, m
     samplecnt = len(forecast_samples[carlist[0]])
     
     #diff_time = np.zeros((len(carlist), 1))
-    diff_time = np.zeros((len(carlist), maxlen))
+    diff_time = np.zeros((len(carlist), maxlap))
     diff_time_hat = np.zeros((len(carlist), samplecnt))
     diff_time[:,:] = np.nan
     diff_time_hat[:,:] = np.nan
     
     for carno in carlist:
         #diff_time[caridmap[carno],0] = forecast[carno][1, lap]
-        diff_time[caridmap[carno],:] = forecast[carno][1, :]
+        maxlen = len(forecast[carno][1, :])
+
+        diff_time[caridmap[carno],:maxlen] = forecast[carno][1, :]
         
         diff_time_hat[caridmap[carno],:] = forecast_samples[carno]
         
@@ -3663,6 +3667,8 @@ def init(pitmodel = ''):
     if not isinstance(pitmodel, str):
         _pitmodel = PitModelSimple(top8=(True if pitmodel==0 else False))
         print(f'init pitmodel as PitModelSimple')
+    elif pitmodel=='oracle':
+        _pitmodel = pitmodel
     else:
         _pitmodel = PitModelMLP(modelfile = pitmodel)
         print(f'init pitmodel as PitModelMLP(pitmodel)')
@@ -3704,7 +3710,7 @@ def get_evalret(df):
 
     mae1 = np.sum(np.abs(df['pred_diff'].values - df['diff'].values))/len(df)
 
-    rmse = mean_squared_error(df['pred_diff'].values , df['diff'].values)
+    rmse = math.sqrt(mean_squared_error(df['pred_diff'].values , df['diff'].values))
     mae = mean_absolute_error(df['pred_diff'].values , df['diff'].values)
     r2 = r2_score(df['pred_diff'].values , df['diff'].values)
 
@@ -3713,10 +3719,23 @@ def get_evalret(df):
     acc_naive = len(n_correct)/len(df)
     mae_naive = np.mean(np.abs(df['diff'].values))
 
+    rmse_naive = math.sqrt(mean_squared_error(df['startrank'].values , df['endrank'].values))
+    r2_naive = r2_score(df['startrank'].values , df['endrank'].values)
 
-    print(f'pred: acc={acc}, mae={mae},{mae1}, rmse={rmse},r2={r2}, acc_naive={acc_naive}, mae_naive={mae_naive}')
+    #print(f'pred: acc={acc}, mae={mae},{mae1}, rmse={rmse},r2={r2}, acc_naive={acc_naive}, mae_naive={mae_naive}, {mae_naive1}')
+    #print(f'pred: acc={acc}, mae={mae}, rmse={rmse},r2={r2}, acc_naive={acc_naive}, mae_naive={mae_naive}')
+    print('model: acc={%.2f}, mae={%.2f}, rmse={%.2f},r2={%.2f}, \n \
+           naive: acc={%.2f}, mae={%.2f}, rmse={%.2f},r2={%.2f}'%(
+               acc, mae, rmse, r2,
+               acc_naive, mae_naive, rmse_naive, r2_naive
+            )
+        )
     
-    return acc, mae, rmse, r2
+    return np.array([[acc, mae, rmse, r2],[acc_naive, mae_naive, rmse_naive, r2_naive]])
+
+    #print(f'pred: acc={acc}, mae={mae},{mae1}, rmse={rmse},r2={r2}, acc_naive={acc_naive}, mae_naive={mae_naive}')
+    
+    #return acc, mae, rmse, r2
 
 def get_evalret_shortterm(df):
     maxlap = np.max(df['startlap'].values)
@@ -3728,7 +3747,7 @@ def get_evalret_shortterm(df):
     correct = top1_pred[top1_pred['pred_endrank']==top1_pred['endrank']]
     acc = len(correct)/len(top1_pred)
 
-    rmse = mean_squared_error(df['pred_endrank'].values , df['endrank'].values)
+    rmse = math.sqrt(mean_squared_error(df['pred_endrank'].values , df['endrank'].values))
     mae = mean_absolute_error(df['pred_endrank'].values , df['endrank'].values)
     r2 = r2_score(df['pred_endrank'].values , df['endrank'].values)
     mae1 = np.sum(np.abs(df['pred_endrank'].values  - df['endrank'].values))
@@ -3744,12 +3763,19 @@ def get_evalret_shortterm(df):
     mae_naive1 = np.sum(np.abs(df['diff'].values))
     mae_naive1 = mae_naive1 / (maxlap - minlap + 1)
 
+    rmse_naive = math.sqrt(mean_squared_error(df['startrank'].values , df['endrank'].values))
+    r2_naive = r2_score(df['startrank'].values , df['endrank'].values)
 
     #print(f'pred: acc={acc}, mae={mae},{mae1}, rmse={rmse},r2={r2}, acc_naive={acc_naive}, mae_naive={mae_naive}, {mae_naive1}')
-    print(f'pred: acc={acc}, mae={mae}, rmse={rmse},r2={r2}, acc_naive={acc_naive}, mae_naive={mae_naive}')
+    #print(f'pred: acc={acc}, mae={mae}, rmse={rmse},r2={r2}, acc_naive={acc_naive}, mae_naive={mae_naive}')
+    print('model: acc={%.2f}, mae={%.2f}, rmse={%.2f},r2={%.2f}, \n \
+           naive: acc={%.2f}, mae={%.2f}, rmse={%.2f},r2={%.2f}'%(
+               acc, mae, rmse, r2,
+               acc_naive, mae_naive, rmse_naive, r2_naive
+            )
+        )
     
-    return acc, mae, rmse, r2
-
+    return np.array([[acc, mae, rmse, r2],[acc_naive, mae_naive, rmse_naive, r2_naive]])
 
 #
 # In[20]:
