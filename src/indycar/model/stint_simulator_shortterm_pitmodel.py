@@ -1702,7 +1702,8 @@ def get_nextpit(pitlaps, startlap):
                 found = True
                 break
         if not found:
-            nextpit.append(np.nan)
+            #nextpit.append(np.nan)
+            nextpit.append(-1)
 
     #return
     return nextpit_map, max(nextpit)
@@ -1854,7 +1855,7 @@ def debug_report_mat(startlap, maxnext):
             # rec[features, lapnumber] -> [laptime, rank, track_status, lap_status,timediff]]
             rec = _data[2][rowid]
 
-_debug_carlist = []
+_debug_carlist = [6]
 #_debug_carlist = [12]
 def debug_report_ts(msg, rec, startlap, carno, col= COL_LAPSTATUS):
     if carno not in _debug_carlist:
@@ -2710,15 +2711,19 @@ def run_simulation_pred(predictor, prediction_length, freq,
         nextpit_pred, maxnext_pred = get_nextpit(pitmat_pred, pitlap)
 
         #debug
-        #_debug_carlist
-        if 12 in nextpit and 12 in nextpit_pred:
-            #print('nextpit:', nextpit[12], nextpit_pred[12], 'maxnext:', maxnext, maxnext_pred)
-            debugstr = f'nextpit: {nextpit[12]}, {nextpit_pred[12]}, maxnext: {maxnext}, {maxnext_pred}'
-            debug_print(debugstr)
+        if len(_debug_carlist) > 0:
+            _testcar = _debug_carlist[0]
+            if _testcar in nextpit and _testcar in nextpit_pred:
+                #print('nextpit:', nextpit[12], nextpit_pred[12], 'maxnext:', maxnext, maxnext_pred)
+                #debugstr = f'nextpit: {nextpit[]}, {nextpit_pred[12]}, maxnext: {maxnext}, {maxnext_pred}'
+                debugstr = 'nextpit: %d, %d, maxnext: %d, %d'%(nextpit[_testcar], nextpit_pred[_testcar]
+                        , maxnext, maxnext_pred)
+
+                debug_print(debugstr)
 
         #run one step sim from pitlap to maxnext
         forecast, forecast_samples = sim_onestep_pred(predictor, prediction_length, freq,
-                pitlap, maxnext_pred,
+                pitlap, max(maxnext, maxnext_pred),
                 oracle_mode = datamode,
                 sample_cnt = 100
                 )
@@ -2735,7 +2740,7 @@ def run_simulation_pred(predictor, prediction_length, freq,
             break
 
         # evaluate for this stint
-        ret = get_acc_onestint_pred(forecasts_et, pitlap, nextpit, nextpit_pred)
+        ret = get_acc_onestint_pred(forecasts_et, pitlap, nextpit, nextpit_pred, trim=_trim)
         rankret.extend(ret)
 
 
@@ -3835,7 +3840,7 @@ if __name__ == '__main__':
     parser.add_option("--datasetid", dest="datasetid", default='indy2013-2018')
     parser.add_option("--testevent", dest="testevent", default='Indy500-2018')
     parser.add_option("--contextratio", dest="contextratio", default=0.)
-    parser.add_option("--trim", dest="trim", type=int, default=2)
+    parser.add_option("--trim", dest="trim", type=int, default=0)
 
     opt, args = parser.parse_args()
 
