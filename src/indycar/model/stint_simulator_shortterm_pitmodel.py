@@ -1812,6 +1812,9 @@ def update_onets(rec, startlap, carno):
             #if (pred_pit_laps > laps_instint) and (nextpos < totallen):
             # a valid pit
             rec[COL_LAPSTATUS, nextpos] = 1
+            if _inlap_status != 0:
+                rec[COL_LAPSTATUS, nextpos-1] = _inlap_status
+
             rec[COL_CAUTION_LAPS_INSTINT, curpos+1: nextpos] = caution_laps_instint
             rec[COL_CAUTION_LAPS_INSTINT, nextpos] = 0
             for _pos in range(curpos+1, nextpos):
@@ -1855,7 +1858,7 @@ def debug_report_mat(startlap, maxnext):
             # rec[features, lapnumber] -> [laptime, rank, track_status, lap_status,timediff]]
             rec = _data[2][rowid]
 
-_debug_carlist = [6]
+_debug_carlist = []
 #_debug_carlist = [12]
 def debug_report_ts(msg, rec, startlap, carno, col= COL_LAPSTATUS):
     if carno not in _debug_carlist:
@@ -3631,6 +3634,7 @@ _task_id = 'laptime'  # rank,laptime, the trained model's task
 _run_ts = COL_LAPTIME   #COL_LAPTIME,COL_RANK
 _exp_id='laptime2rank'  #rank, laptime, laptim2rank, timediff2rank... 
 
+_inlap_status = 1
 
 # In[16]:
 global_start_offset = {}
@@ -3642,10 +3646,13 @@ decode_carids = {}
 years = ['2013','2014','2015','2016','2017','2018','2019']
 events = [f'Indy500-{x}' for x in years]
 events_id={key:idx for idx, key in enumerate(events)}
-dbid = f'Indy500_{years[0]}_{years[-1]}_v9'
+dbid = f'Indy500_{years[0]}_{years[-1]}_v9_p{_inlap_status}'
 
 def init(pitmodel = ''):
     global global_carids, laptime_data, global_start_offset, decode_carids,_pitmodel
+    global dbid
+
+    dbid = f'Indy500_{years[0]}_{years[-1]}_v9_p{_inlap_status}'
 
     stagedata = {}
     for event in events:
