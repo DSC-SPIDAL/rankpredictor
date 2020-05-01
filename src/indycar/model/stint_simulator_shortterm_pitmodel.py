@@ -1813,7 +1813,14 @@ def update_onets(rec, startlap, carno):
             # a valid pit
             rec[COL_LAPSTATUS, nextpos] = 1
             if _inlap_status != 0:
-                rec[COL_LAPSTATUS, nextpos-1] = _inlap_status
+                #inlap is 'P'
+                if _inlap_status == 1 :
+                    #rec[COL_LAPSTATUS, nextpos-1] = _inlap_status
+                    rec[COL_LAPSTATUS, nextpos-1] = 1
+                else:
+                    #todo: no boudary check
+                    #rec[COL_LAPSTATUS, nextpos+1] = _inlap_status
+                    rec[COL_LAPSTATUS, nextpos+1] = 1
 
             rec[COL_CAUTION_LAPS_INSTINT, curpos+1: nextpos] = caution_laps_instint
             rec[COL_CAUTION_LAPS_INSTINT, nextpos] = 0
