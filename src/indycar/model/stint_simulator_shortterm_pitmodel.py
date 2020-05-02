@@ -1665,6 +1665,20 @@ def get_pitlaps(verbose = True, prediction_length=2):
             lap_status = rec[COL_LAPSTATUS, :]
 
             pitstops = np.where(lap_status == 1)[0]
+
+            # filter out inlaps (when _inlap_status > 0)
+            if _inlap_status !=0:
+                if _inlap_status == 1:
+                    #remove inlaps in previous of pit stops
+                    pitstops_tmp = [pitstops[x] for x in range(1, len(pitstops), 2)]
+                    pitstops = pitstops_tmp
+
+                elif _inlap_status == 2:
+                    #remove inlaps in next lap of pit stops
+                    pitstops_tmp = [pitstops[x] for x in range(0, len(pitstops), 2)]
+                    pitstops = pitstops_tmp
+
+
             #all_pitlaps.append(list(pitstops))
             all_pitlaps[carno] = list(pitstops)
 
@@ -2534,8 +2548,18 @@ def get_acc_onestint_pred(forecasts, startlap, nextpit, nextpit_pred, trim=2, cu
         true_rank = forecasts[carno][3,:]
         pred_rank = forecasts[carno][4,:]
 
+
+        #lap status condition
+        if _inlap_status == 0:
+            lapstatus_cont = (forecasts[carno][0, startlap] == 1)
+        elif _inlap_status == 1:
+            lapstatus_cont = ((forecasts[carno][0, startlap] == 1) and (forecasts[carno][0, startlap-1] == 1))
+        elif _inlap_status == 2:
+            lapstatus_cont = ((forecasts[carno][0, startlap] == 1) and (forecasts[carno][0, startlap+1] == 1))
+
         # check the lap status
-        if ((startlap < lapnum) and (forecasts[carno][0, startlap] == 1)):
+        #if ((startlap < lapnum) and (forecasts[carno][0, startlap] == 1)):
+        if ((startlap < lapnum) and (lapstatus_cont == True)):
 
             startrank = true_rank[startlap-trim]
             
@@ -3657,7 +3681,7 @@ dbid = f'Indy500_{years[0]}_{years[-1]}_v9_p{_inlap_status}'
 
 def init(pitmodel = ''):
     global global_carids, laptime_data, global_start_offset, decode_carids,_pitmodel
-    global dbid
+    global dbid, _inlap_status
 
     dbid = f'Indy500_{years[0]}_{years[-1]}_v9_p{_inlap_status}'
 
@@ -3675,13 +3699,14 @@ def init(pitmodel = ''):
     # start from here
     import pickle
     #with open('laptime_rank_timediff_fulltest-oracle-%s.pickle'%year, 'rb') as f:
-    with open(f'laptime_rank_timediff_pit-oracle-{dbid}.pickle', 'rb') as f:
+    laptimefile = f'laptime_rank_timediff_pit-oracle-{dbid}.pickle'
+    with open(laptimefile, 'rb') as f:
         # The protocol version used is detected automatically, so we do not
         # have to specify it.
         global_carids, laptime_data = pickle.load(f, encoding='latin1') 
     
     decode_carids={carid:carno for carno, carid in global_carids.items()}
-    print(f'init: load dataset with {len(laptime_data)} races, {len(global_carids)} cars')
+    print(f'init: load dataset {laptimefile} with {len(laptime_data)} races, {len(global_carids)} cars')
 
     if not isinstance(pitmodel, str):
         _pitmodel = PitModelSimple(top8=(True if pitmodel==0 else False))
