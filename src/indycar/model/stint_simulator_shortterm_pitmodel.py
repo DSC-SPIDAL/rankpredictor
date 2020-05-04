@@ -1682,6 +1682,11 @@ def get_pitlaps(verbose = True, prediction_length=2):
             #all_pitlaps.append(list(pitstops))
             all_pitlaps[carno] = list(pitstops)
 
+            # append the end lap
+            if _include_endpit:
+                all_pitlaps[carno].append(totallen-1)
+
+
     #retrurn
     allset = []
     for l in all_pitlaps.keys():
@@ -1718,6 +1723,9 @@ def get_nextpit(pitlaps, startlap):
         if not found:
             #nextpit.append(np.nan)
             nextpit.append(-1)
+
+            #todo, set to the end
+            #nextpit.append(199)
 
     #return
     return nextpit_map, max(nextpit)
@@ -2076,7 +2084,7 @@ def sim_onestep_pred(predictor, prediction_length, freq,
 
                 #debug
                 #debug_report('simu_onestep', rec, startlap, carno, col= _run_ts)
-                debug_report(f'simu_onestep: {startlap}-{endlap}, endpos={endpos}', target_val[:endpos], startlap, carno)
+                #debug_report(f'simu_onestep: {startlap}-{endlap}, endpos={endpos}', target_val[:endpos], startlap, carno)
 
         # end of for each ts
 
@@ -2557,12 +2565,22 @@ def get_acc_onestint_pred(forecasts, startlap, nextpit, nextpit_pred, trim=2, cu
         elif _inlap_status == 2:
             lapstatus_cont = ((forecasts[carno][0, startlap] == 1) and (forecasts[carno][0, startlap+1] == 1))
 
+
+        if carno in _debug_carlist:
+            _debug_msg = 'startlap=%d, total=%d, pitstop status = %s, nextpit=%s, nextpit_pred=%s'%(startlap, lapnum, lapstatus_cont, 
+                     'none' if (carno not in nextpit) else nextpit[carno],
+                     'none' if (carno not in nextpit_pred) else nextpit_pred[carno],
+                     )
+            debug_print(_debug_msg)
+
+
         # check the lap status
         #if ((startlap < lapnum) and (forecasts[carno][0, startlap] == 1)):
         if ((startlap < lapnum) and (lapstatus_cont == True)):
 
             startrank = true_rank[startlap-trim]
             
+
             if not carno in nextpit:
                 continue
 
@@ -2570,12 +2588,23 @@ def get_acc_onestint_pred(forecasts, startlap, nextpit, nextpit_pred, trim=2, cu
             if np.isnan(pitpos):
                 continue
 
-            if not carno in nextpit_pred:
-                continue
+            #todo, use the true prediction that longer than maxlap
+            if _force_endpit_align:
+                if not carno in nextpit_pred:
+                    #continue
+                    pitpos_pred = pitpos
+                else:
+                    pitpos_pred = nextpit_pred[carno]
+                    if np.isnan(pitpos_pred):
+                        pitpos_pred = pitpos
+            else:
 
-            pitpos_pred = nextpit_pred[carno]
-            if np.isnan(pitpos_pred):
-                continue
+                if not carno in nextpit_pred:
+                    continue
+                pitpos_pred = nextpit_pred[carno]
+                if np.isnan(pitpos_pred):
+                    #set prediction to the end
+                    continue
 
             endrank = true_rank[pitpos-trim]
             #endrank_pred = true_rank[pitpos_pred-trim]
@@ -3666,6 +3695,8 @@ _run_ts = COL_LAPTIME   #COL_LAPTIME,COL_RANK
 _exp_id='laptime2rank'  #rank, laptime, laptim2rank, timediff2rank... 
 
 _inlap_status = 1
+_force_endpit_align = False
+_include_endpit = False
 
 # In[16]:
 global_start_offset = {}
