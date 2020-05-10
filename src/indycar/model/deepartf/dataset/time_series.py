@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import logging
+import pickle
 
 logger = logging.getLogger('deepar')
 
@@ -169,4 +170,42 @@ class TimeSeries(Dataset):
         return rnn_output.drop(target_var, 1).values.reshape(batch_size, n_steps, -1), \
                rnn_output[target_var].values.reshape(batch_size, n_steps, 1)
 
+class RecordTs(Dataset):
+    """
+    inputs saved by gluonts runtime
+    
+    """
+    def __init__(self, savefile):
+        self.data = None
+        with open(savefile, 'rb') as f:
+            # The protocol version used is detected automatically, so we do not
+            # have to specify it.
+            self.data,self.target, self.other = pickle.load(f, encoding='latin1')
+            print('dataset shape:',(self.data[0].shape))
+            print('target shape:',(self.target[0].shape))
+            self.n_batches = len(self.data)
+            self.batch_size, self.n_steps, self.n_features = self.data[0].shape
+
+            self.curpos = 0
+
+    def next_batch(self, batch_size, n_steps):
+        """
+        Generate next batch (x, y), generate y by lagging x (1 step)
+        """
+        if (batch_size <= 0):
+            # prediction call
+            batch_size,n_steps = self.target[self.curpos].shape
+            x = self.data[-1]
+            y = self.target[-1].reshape((batch_size, n_steps, 1))
+            return x[0], y[0]
+
+        batch_size,n_steps = self.target[self.curpos].shape
+        x = self.data[self.curpos]
+        y = self.target[self.curpos].reshape((batch_size, n_steps, 1))
+
+        self.curpos += 1
+        if self.curpos >=len(self.data) -1:
+            self.curpos = 0
+
+        return x, y
 

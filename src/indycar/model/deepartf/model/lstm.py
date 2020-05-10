@@ -189,5 +189,6 @@ def ts_generator(ts_obj, n_steps):
     """
     while 1:
         #batch = ts_obj.next_batch(1, n_steps)
+        #batch = ts_obj.next_batch(32, n_steps)
         batch = ts_obj.next_batch(32, n_steps)
         yield batch[0], batch[1]
