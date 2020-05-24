@@ -1181,9 +1181,11 @@ def eval_rank(test_ds,tss,forecasts,prediction_length, start_offset):
         if prediction_length != prediction_len:
             print('error: prediction_len does not match, {prediction_length}:{prediction_len}')
             return []
-        
-        forecast_laptime_mean = np.mean(forecasts[idx].samples, axis=0).reshape((prediction_len,1))
-        #forecast_laptime_mean = np.median(forecasts[idx].samples, axis=0).reshape((prediction_len,1))
+     
+        if _use_mean:
+            forecast_laptime_mean = np.mean(forecasts[idx].samples, axis=0).reshape((prediction_len,1))
+        else:
+            forecast_laptime_mean = np.median(forecasts[idx].samples, axis=0).reshape((prediction_len,1))
 
         if isinstance(start_offset, pd.core.frame.DataFrame):
             #print('eval_rank:laptime2rank')
@@ -1696,7 +1698,7 @@ def get_pitlaps(verbose = True, prediction_length=2):
 
     return ret_pitlaps, all_pitlaps, max_lap
 
-def get_nextpit(pitlaps, startlap):
+def get_nextpit_raw(pitlaps, startlap):
     """
     input:
         pitlaps ; array of pitstops for all the cars
@@ -1729,6 +1731,56 @@ def get_nextpit(pitlaps, startlap):
 
     #return
     return nextpit_map, max(nextpit)
+
+
+def get_nextpit(pitlaps, startlap):
+    """
+    input:
+        pitlaps ; array of pitstops for all the cars
+        startlap    ; 
+    return
+        nextpit ; nextpit for all the cars, nan for non-pit
+
+    """
+    nextpit = []
+    nextpit_map = {}
+    nextpit_hit = []
+
+    #find hits
+    for carno in pitlaps.keys():
+        rec = pitlaps[carno]
+        #search for startlap
+        for lap in rec:
+            if lap ==startlap:
+                nextpit_hit.append(carno)
+
+    #normal search
+    for carno in pitlaps.keys():
+        rec = pitlaps[carno]
+        #search for startlap
+        found = False
+        for lap in rec:
+            if lap > startlap:
+                nextpit.append(lap)
+                nextpit_map[carno] = lap
+                found = True
+                break
+        if not found:
+            #nextpit.append(np.nan)
+            nextpit.append(-1)
+
+            #todo, set to the end
+            #nextpit.append(199)
+
+    #get maxpit from nextpit_hit
+    maxpit = -1
+    for carno in nextpit_hit:
+        if carno in nextpit_map:
+            maxpit = max(nextpit_map[carno], maxpit)
+
+    #return
+    #return nextpit_map, max(nextpit)
+    return nextpit_map, maxpit
 
 def sim_init():
     """
@@ -1821,6 +1873,12 @@ def update_onets(rec, startlap, carno):
 
         nextpos = curpos + pred_pit_laps - laps_instint
 
+        #debug
+        #if carno == 12:
+        #    print('pitmodel: startlap={}, laps_instint={}, cuation_laps={}, \
+        #            nextpos={}'.format(curpos, laps_instint, caution_laps_instint, nextpos))
+
+
         if nextpos >= totallen:
             nextpos = totallen - 1
  
@@ -1856,6 +1914,22 @@ def update_onets(rec, startlap, carno):
     debug_report('after update_onets', rec[COL_LAPSTATUS], startlap, carno)
 
     return
+
+def debug_pitmodel(startlap, carno, laps_instint, caution_laps_instint, samplecnt=1000):
+    """
+    test the pitmodel
+    ret:
+        list of predictions of nextpit
+    """
+    ret = []
+    for runid in range(samplecnt):
+
+        pred_pit_laps = _pitmodel.predict(caution_laps_instint, laps_instint)
+
+        nextpos = startlap + pred_pit_laps - laps_instint
+        ret.append(nextpos)
+
+    return ret
 
 
 #debug tracking status
@@ -1928,7 +2002,8 @@ def sim_onestep_pred(predictor, prediction_length, freq,
             2,: -> pred target
             3,  -> placeholder
             4,  -> placeholder
-
+        forecast_samples; save the samples, the farest samples
+            {}, carno -> samplecnt of the target
 
     """    
     run_ts= _run_ts 
@@ -2107,7 +2182,10 @@ def sim_onestep_pred(predictor, prediction_length, freq,
             #global carid
             carno = decode_carids[test_rec['feat_static_cat'][0]]
 
-            forecast_laptime_mean = np.mean(forecasts[idx].samples, axis=0).reshape((prediction_length))
+            if _use_mean:
+                forecast_laptime_mean = np.mean(forecasts[idx].samples, axis=0).reshape((prediction_length))
+            else:
+                forecast_laptime_mean = np.median(forecasts[idx].samples, axis=0).reshape((prediction_length))
             
             #update the forecasts , ready to use in the next prediction(regresive forecasting)
             forecasts_et[carno][2, len(tss[idx]) - prediction_length:len(tss[idx])] = forecast_laptime_mean.copy()
@@ -2628,7 +2706,8 @@ def get_acc_onestint_pred(forecasts, startlap, nextpit, nextpit_pred, trim=2, cu
 
             rankret.append([carno, startlap, startrank, 
                             endrank, diff, sign,
-                            pred_endrank, pred_diff, pred_sign
+                            pred_endrank, pred_diff, pred_sign,
+                            pitpos, pitpos_pred
                             ])
 
     return rankret
@@ -2744,7 +2823,112 @@ def get_acc_onestint(forecasts, startlap, nextpit, trim=2, currank = False):
 
     return rankret
 
-# pred sim
+#
+# simulation
+#
+def run_simulation_stint(predictor, prediction_length, freq, 
+                   carno, stintid, loopcnt,
+                   datamode = MODE_ORACLE):
+    """
+    simulation for one car at specific stint
+    input:
+        carno   ; 
+        stintid ;
+
+    step:
+        1. init the lap status model
+        2. loop on each pit lap
+            1. onestep simulation
+            2. eval stint performance
+    """
+
+    rankret = []
+
+    # the ground truth
+    allpits, pitmat, maxlap = get_pitlaps()
+    sim_init()
+
+    #init samples array
+    full_samples = {}
+    full_tss = {}
+
+
+    #here, test only one stint for carno and stintid
+    pitlap = pitmat[carno][stintid]
+
+    for runid in range(loopcnt):
+    #for pitlap in allpits:
+        #1. update lap status
+        debug_print(f'start pitlap: {pitlap}')
+        if not (isinstance(_pitmodel, str) and _pitmodel == 'oracle'):
+            update_lapstatus(pitlap)
+
+        debug_print(f'update lapstatus done.')
+        #2. get maxnext
+        allpits_pred, pitmat_pred, maxlap = get_pitlaps()
+        nextpit, maxnext = get_nextpit(pitmat, pitlap)
+        nextpit_pred, maxnext_pred = get_nextpit(pitmat_pred, pitlap)
+
+        #only for one car
+        maxnext = nextpit[carno]
+        maxnext_pred = nextpit_pred[carno]
+
+        #debug
+        if len(_debug_carlist) > 0:
+            _testcar = _debug_carlist[0]
+            if _testcar in nextpit and _testcar in nextpit_pred:
+                #print('nextpit:', nextpit[12], nextpit_pred[12], 'maxnext:', maxnext, maxnext_pred)
+                #debugstr = f'nextpit: {nextpit[]}, {nextpit_pred[12]}, maxnext: {maxnext}, {maxnext_pred}'
+                debugstr = 'nextpit: %d, %d, maxnext: %d, %d'%(nextpit[_testcar], nextpit_pred[_testcar]
+                        , maxnext, maxnext_pred)
+
+                debug_print(debugstr)
+
+        #run one step sim from pitlap to maxnext
+        #to get the forecast_sample, set max = mexnext_pred only, 
+        #rather than max(maxnext,maxnext_pred)
+        #
+        forecast, forecast_samples = sim_onestep_pred(predictor, prediction_length, freq,
+                pitlap, maxnext_pred,
+                oracle_mode = datamode,
+                sample_cnt = 100
+                )
+
+        debug_print(f'simulation done: {len(forecast)}')
+        # calc rank from this result
+        if _exp_id=='rank' or _exp_id=='timediff2rank':
+            forecasts_et = eval_stint_direct(forecast, 2)
+        elif _exp_id=='laptime2rank':
+            forecasts_et = eval_stint_bylaptime(forecast, 2, global_start_offset[_test_event])
+
+        else:
+            print(f'Error, {_exp_id} evaluation not support yet')
+            return
+
+        ## evaluate for this stint
+        ret = get_acc_onestint_pred(forecasts_et, pitlap, nextpit, nextpit_pred, trim=_trim)
+
+        #add endlap
+        #_ = [x.append(maxnext_pred) for x in ret]
+        rankret.extend(ret)
+
+        ## add to full_samples
+        #eval_full_samples(maxnext_pred,
+        #        forecast_samples, forecast, 
+        #        full_samples, full_tss)
+
+        
+
+    #add to df
+    df = pd.DataFrame(rankret, columns =['carno', 'startlap', 'startrank', 
+                                         'endrank', 'diff', 'sign',
+                                         'pred_endrank', 'pred_diff', 'pred_sign',
+                                         'endlap','pred_endlap'
+                                        ])
+
+    return df, full_samples, full_tss, maxnext_pred
+
+
 def run_simulation_pred(predictor, prediction_length, freq, 
                    datamode = MODE_ORACLE):
     """
@@ -2811,6 +2995,7 @@ def run_simulation_pred(predictor, prediction_length, freq,
     df = pd.DataFrame(rankret, columns =['carno', 'startlap', 'startrank', 
                                          'endrank', 'diff', 'sign',
                                          'pred_endrank', 'pred_diff', 'pred_sign',
+                                         'endlap','pred_endlap'
                                         ])
 
     return df
@@ -3697,6 +3882,8 @@ _exp_id='laptime2rank'  #rank, laptime, laptim2rank, timediff2rank...
 _inlap_status = 1
 _force_endpit_align = False
 _include_endpit = False
+
+_use_mean = False   # mean or median to get prediction from samples
 
 # In[16]:
 global_start_offset = {}

@@ -1,3 +1,3 @@
-,runid,trainsize,testsize,testdistribution,currank,avgrank,dice,lasso,ridge,rf,svr,xgb
-0,Indy500-2018,1117,189,"+:72,0:19,-:98",4.101,17.429,6.561,3.286,3.640,3.265,3.836,3.571
-0,Indy500-2019,1117,216,"+:66,0:33,-:117",4.292,17.486,6.199,4.028,4.287,3.986,4.106,4.426
+,runid,trainsize,testsize,testdistribution,currank,avgrank,dice,lasso,ridge,rf,svr_rbf,svr_lin,xgb
+0,Indy500-2018,1117,189,"+:72,0:19,-:98",4.101,17.429,6.561,3.286,3.640,3.349,4.101,3.423,3.571
+0,Indy500-2019,1117,216,"+:66,0:33,-:117",4.292,17.486,6.199,4.028,4.287,4.056,4.292,4.722,4.426
