@@ -504,6 +504,7 @@ if __name__ == '__main__':
         #evaluate_model_uni(predictor, evaluator, test_ds, opt.outputfile)
 
         #
+        #predictor.prediction_net.rnn.summary()
         data = predictor.prediction_net.savedata
 
     #target = estimator.network.savetarget
