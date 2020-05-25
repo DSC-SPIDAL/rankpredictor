@@ -113,7 +113,7 @@ def plot_prob_forecasts(ts_entry, forecast_entry, outputfile):
         plt.legend(legend, loc="upper left")
         plt.savefig(outputfile + '-%d.pdf'%idx)
 
-def evaluate_model_old(estimator, train_ds, test_ds, outputfile):
+def evaluate_model_old(estimator, train_ds, test_ds, outputfile, samplecnt = 100):
     predictor = estimator.train(train_ds)
     
     if not os.path.exists(outputfile):
@@ -124,7 +124,7 @@ def evaluate_model_old(estimator, train_ds, test_ds, outputfile):
     forecast_it, ts_it = make_evaluation_predictions(
         dataset=test_ds,  # test dataset
         predictor=predictor,  # predictor
-        num_samples=100,  # number of sample paths we want for evaluation
+        num_samples=samplecnt,  # number of sample paths we want for evaluation
     )
     
     forecasts = list(forecast_it)
@@ -173,12 +173,12 @@ def evaluate_model_uni(predictor, evaluator, test_ds, outputfile):
     logger.info(json.dumps(agg_metrics, indent=4))
  
 
-def evaluate_model(predictor, evaluator, test_ds, outputfile):
+def evaluate_model(predictor, evaluator, test_ds, outputfile, samplecnt = 100):
     
     forecast_it, ts_it = make_evaluation_predictions(
         dataset=test_ds,  # test dataset
         predictor=predictor,  # predictor
-        num_samples=100,  # number of sample paths we want for evaluation
+        num_samples=samplecnt,  # number of sample paths we want for evaluation
     )
     
     forecasts = list(forecast_it)
@@ -467,6 +467,7 @@ if __name__ == '__main__':
         else:
             predictor = estimator.train(train_ds)
 
+            data = estimator.network.savedata
         #if not opt.nosave:
         #    if not os.path.exists(opt.outputfile):
         #        os.mkdir(opt.outputfile)
@@ -484,30 +485,37 @@ if __name__ == '__main__':
         predictor =  Predictor.deserialize(Path(opt.outputfile))
         logger.info('End of loading the model.')
 
-    #save data
-    data = estimator.network.savedata
-    target = estimator.network.savetarget
-    other = estimator.network.saveother
+
+    # evaluate
+    if opt.evalmode == True:
+        #if opt.multi!=0:
+        if target_dim > 1:
+            logger.info('Start MultivariateEvaluator')
+            evaluator = MultivariateEvaluator(quantiles=[0.1, 0.5, 0.9])
+        else:
+            logger.info('Start Evaluator')
+            evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9])
+
+        #forece to single item
+        print('batch size:', predictor.batch_size)
+        predictor.batch_size = 1
+        print('batch size reset:', predictor.batch_size)
+        evaluate_model(predictor, evaluator, test_ds, opt.outputfile, samplecnt=1)
+        #evaluate_model_uni(predictor, evaluator, test_ds, opt.outputfile)
+
+        #
+        data = predictor.prediction_net.savedata
+
+    #target = estimator.network.savetarget
+    #other = estimator.network.saveother
     savefile = opt.savedata
     with open(savefile, 'wb') as f:
         #pack [global_carids, laptime_data]
         # Pickle the 'data' dictionary using the highest protocol available.
-        pickle.dump([data,target,other], f, pickle.HIGHEST_PROTOCOL)
+        #pickle.dump([data,target,other], f, pickle.HIGHEST_PROTOCOL)
+        pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
 
     logger.info('Save data size=%d to %s'%(len(data), savefile))
-
-    ## evaluate
-    ##if opt.multi!=0:
-    #if target_dim > 1:
-    #    logger.info('Start MultivariateEvaluator')
-    #    evaluator = MultivariateEvaluator(quantiles=[0.1, 0.5, 0.9])
-    #else:
-    #    logger.info('Start Evaluator')
-    #    evaluator = Evaluator(quantiles=[0.1, 0.5, 0.9])
-
-    #evaluate_model(predictor, evaluator, test_ds, opt.outputfile)
-    ##evaluate_model_uni(predictor, evaluator, test_ds, opt.outputfile)
-
 
 
 

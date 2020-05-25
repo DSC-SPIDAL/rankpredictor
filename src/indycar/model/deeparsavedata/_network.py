@@ -116,12 +116,16 @@ class DeepARSaveDataNetwork(mx.gluon.HybridBlock):
                 self.scaler = NOPScaler(keepdims=True)
 
         #save data
-        self.savedata = []
-        self.savetarget = []
-        self.saveother = []
+        self.reset_savedata()
 
     def reset_savedata(self):
-        self.savedata = []
+        self.savedata = {}
+        self.savedata['input'] = []
+        self.savedata['target'] = []
+        self.savedata['lags'] = []
+        self.savedata['theta'] = []
+        self.savedata['hstate'] = []
+
 
     @staticmethod
     def get_lagged_subsequences(
@@ -276,11 +280,11 @@ class DeepARSaveDataNetwork(mx.gluon.HybridBlock):
         inputs = F.concat(input_lags, time_feat, repeated_static_feat, dim=-1)
 
         #save data here
-        self.savedata.append(inputs.asnumpy().copy())
+        self.savedata['input'].append(inputs.asnumpy().copy())
         #self.savedata.append(inputs)
-        self.saveother.append(lags.asnumpy().copy())
+        self.savedata['lags'].append(lags.asnumpy().copy())
 
-        print(self.lags_seq)
+        #print(self.lags_seq)
 
         # unroll encoder
         outputs, state = self.rnn.unroll(
@@ -413,7 +417,8 @@ class DeepARSaveDataTrainingNetwork(DeepARSaveDataNetwork):
         # (batch_size, seq_len)
         loss = distr.loss(target)
 
-        self.savetarget.append(target.asnumpy().copy())
+        #save target in training
+        self.savedata['target'].append(target.asnumpy().copy())
 
         # (batch_size, seq_len, *target_shape)
         observed_values = F.concat(
@@ -561,6 +566,15 @@ class DeepARSaveDataPredictionNetwork(DeepARSaveDataNetwork):
             )
             future_samples.append(new_samples)
 
+            #save only the last output
+            if k == self.prediction_length -1:
+                self.savedata['hstate'].append(repeated_states.asnumpy().copy())
+                self.savedata['rnnoutput'].append(rnn_outputs.asnumpy().copy())
+                self.savedata['theta'].append(distr_args)
+                self.savedata['target'].append(new_samples.asnumpy().copy())
+
+   
+
         # (batch_size * num_samples, prediction_length, *target_shape)
         samples = F.concat(*future_samples, dim=1)
 
@@ -613,6 +627,7 @@ class DeepARSaveDataPredictionNetwork(DeepARSaveDataNetwork):
             future_time_feat=None,
             future_target=None,
         )
+
 
         return self.sampling_decoder(
             F=F,
