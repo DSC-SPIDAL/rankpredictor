@@ -4007,7 +4007,8 @@ def get_evalret_shortterm(df):
     top1_pred = df[df['pred_endrank']==0]
 
     correct = top1_pred[top1_pred['pred_endrank']==top1_pred['endrank']]
-    acc = len(correct)/len(top1_pred)
+    #acc = len(correct)/len(top1_pred)
+    acc = len(correct)/(len(top1_pred) + 1e-10)
 
     rmse = math.sqrt(mean_squared_error(df['pred_endrank'].values , df['endrank'].values))
     mae = mean_absolute_error(df['pred_endrank'].values , df['endrank'].values)
@@ -4030,9 +4031,9 @@ def get_evalret_shortterm(df):
 
     #print(f'pred: acc={acc}, mae={mae},{mae1}, rmse={rmse},r2={r2}, acc_naive={acc_naive}, mae_naive={mae_naive}, {mae_naive1}')
     #print(f'pred: acc={acc}, mae={mae}, rmse={rmse},r2={r2}, acc_naive={acc_naive}, mae_naive={mae_naive}')
-    print('model: acc={%.2f}, mae={%.2f}, rmse={%.2f},r2={%.2f}, \n \
+    print('model: acc={%.2f}, mae={%.2f}, rmse={%.2f},r2={%.2f}, {%d}\n \
            naive: acc={%.2f}, mae={%.2f}, rmse={%.2f},r2={%.2f}'%(
-               acc, mae, rmse, r2,
+               acc, mae, rmse, r2, len(top1_pred),
                acc_naive, mae_naive, rmse_naive, r2_naive
             )
         )
