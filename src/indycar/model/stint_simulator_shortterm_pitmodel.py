@@ -3986,9 +3986,9 @@ def get_evalret(df):
 
     #print(f'pred: acc={acc}, mae={mae},{mae1}, rmse={rmse},r2={r2}, acc_naive={acc_naive}, mae_naive={mae_naive}, {mae_naive1}')
     #print(f'pred: acc={acc}, mae={mae}, rmse={rmse},r2={r2}, acc_naive={acc_naive}, mae_naive={mae_naive}')
-    print('model: acc={%.2f}, mae={%.2f}, rmse={%.2f},r2={%.2f}, \n \
+    print('model: acc={%.2f}, mae={%.2f}, rmse={%.2f},r2={%.2f}, {%d}\n \
            naive: acc={%.2f}, mae={%.2f}, rmse={%.2f},r2={%.2f}'%(
-               acc, mae, rmse, r2,
+               acc, mae, rmse, r2, len(df),
                acc_naive, mae_naive, rmse_naive, r2_naive
             )
         )

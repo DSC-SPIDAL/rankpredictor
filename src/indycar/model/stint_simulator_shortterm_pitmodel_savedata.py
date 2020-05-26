@@ -1961,6 +1961,7 @@ def debug_report_mat(startlap, maxnext):
             # rec[features, lapnumber] -> [laptime, rank, track_status, lap_status,timediff]]
             rec = _data[2][rowid]
 
+_test_carlist = []
 _debug_carlist = []
 #_debug_carlist = [12]
 def debug_report_ts(msg, rec, startlap, carno, col= COL_LAPSTATUS):
@@ -2065,7 +2066,7 @@ def sim_onestep_pred(predictor, prediction_length, freq,
                 static_cat = [carid]    
                     
                 #save data for car in the debug list only
-                if not carno in _debug_carlist:
+                if not carno in _test_carlist:
                     continue
 
                 #first, get target a copy    

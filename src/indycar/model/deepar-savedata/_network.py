@@ -451,9 +451,11 @@ class DeepARTrainingNetwork(DeepARNetwork):
 
 class DeepARPredictionNetwork(DeepARNetwork):
     @validated()
-    def __init__(self, num_parallel_samples: int = 100, **kwargs) -> None:
+    #def __init__(self, num_parallel_samples: int = 100, **kwargs) -> None:
+    def __init__(self, num_parallel_samples: int = 1, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.num_parallel_samples = num_parallel_samples
+        #self.num_parallel_samples = num_parallel_samples
+        self.num_parallel_samples = 1
 
         # for decoding the lags are shifted by one, at the first time-step
         # of the decoder a lag of one corresponds to the last target value
