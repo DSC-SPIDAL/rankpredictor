@@ -1,0 +1,1 @@
+{"__kind__": "instance", "args": [], "class": "gluonts.transform.Chain", "kwargs": {"trans": [{"__kind__": "instance", "args": [], "class": "gluonts.transform.RemoveFields", "kwargs": {"field_names": ["del"]}}]}}
