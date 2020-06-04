@@ -657,6 +657,7 @@ def make_dataset_byevent(runs, prediction_length, freq,
                     step = -1
                 
                 #bug fix, fixed the split point for all cars/ts
+                #for endpos in range(max_len, context_len+prediction_length, 
                 for endpos in range(max_len, context_len+prediction_length, 
                                     step):
 
@@ -1357,6 +1358,82 @@ def eval_rank(test_ds,tss,forecasts,prediction_length, start_offset):
         
     return rank_ret,forecasts_et    
     
+def get_acc_ex(rank_ret,prediction_length, verbose = False):   
+    """
+    input:
+        rank_ret: [lap, elapsed_time, true_rank, pred_rank], use [2][3] columns
+    return:
+        ((metrics...)
+         (record count...))
+         
+    the result can be used to calculate micro/macro metrics
+    """
+    # evaluate
+    #top1 accuracy
+    top1acc = 0
+    top1acc_farmost = 0
+    top5acc = 0
+    top5acc_farmost = 0
+    tau = 0
+    rmse = 0.
+    mae = 0.
+    
+    reccnt = 0
+
+    for rec in rank_ret:
+        trueRank = rec[2]
+        predRank = rec[3]
+
+        #top1 , rank = 0, first col is not prediction
+        top1acc += np.sum((trueRank==0) & (predRank==0)) 
+        
+        top1acc_farmost += np.sum((trueRank[:,-1]==0) & (predRank[:,-1]==0))
+        
+        #top5
+        top5acc += np.sum((trueRank<5) & (predRank<5)) 
+        
+        top5acc_farmost += np.sum((trueRank[:,-1]<5) & (predRank[:,-1]<5))
+        
+        # tau
+        tao, _ = stats.kendalltau(trueRank, predRank)
+        tau += tao
+        
+        #rmse
+        rmse += mean_squared_error(predRank,trueRank)
+
+        mae += np.sum(np.abs(predRank - trueRank))
+
+        reccnt += len(trueRank)
+        
+    recnt = len(rank_ret)
+    if recnt > 0:
+        top1acc = top1acc *1.0/ (recnt*prediction_length)
+        top1acc_farmost = top1acc_farmost *1.0/ recnt
+        top5acc = top5acc *1.0/ (5*recnt*prediction_length)
+        top5acc_farmost = top5acc_farmost *1.0/ (5*recnt)
+        tau = tau/recnt
+        rmse = rmse/recnt
+        mae = mae / reccnt
+
+        if verbose:
+            print(f'total:{len(rank_ret)}, prediction_length:{prediction_length}') 
+            print('top1acc=', top1acc,
+                  'top1acc_farmost=', top1acc_farmost,
+                  'top5acc=', top5acc,
+                  'top5acc_farmost=', top5acc_farmost,
+                 )
+            print('tau = ', tau,
+                 'rmse = ', rmse)
+    
+    #return ((top1acc,top1acc_farmost,top5acc,top5acc_farmost,tau,rmse),
+    return ((top1acc_farmost,mae, top1acc, top5acc,top5acc_farmost,tau,rmse),
+            (recnt, recnt, recnt*prediction_length,5*recnt*prediction_length,5*recnt,recnt,recnt))
+    
+
+
+
+
+
 def get_acc(rank_ret,prediction_length, verbose = False):   
     """
     input:
