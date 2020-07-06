@@ -60,6 +60,7 @@ from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
 from indycar.model.pitmodel import PitModelSimple, PitModelMLP
+from indycar.model.deeparw import DeepARWeightEstimator
 # In[2]:
 
 
@@ -604,6 +605,9 @@ def make_dataset_byevent(runs, prediction_length, freq,
                 carno = rowid
                 carid = rowid
                 
+            #check carno in test_cars
+            if len(test_cars)>0 and carno not in test_cars:
+                continue
             
             if useeid:
                 static_cat = [carid, _data[0]]    
@@ -916,14 +920,25 @@ def load_model(prediction_length, model_name,trainid,exproot='remote'):
             print(f'predicting model={model_name}, plen={prediction_length}')
             predictor =  Predictor.deserialize(Path(modeldir))
             print(f'loading model...done!, ctx:{predictor.ctx}')
-            
-        # deepAR-Oracle
-        elif model_name == 'oracle':
-            model=f'deepAR-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_oracle_t{prediction_length}'
+        #deeparw-oracle
+        elif model_name == 'weighted-oracle':
+            model=f'deepARW-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_oracle_t{prediction_length}'
             modeldir = rootdir + model
             print(f'predicting model={model_name}, plen={prediction_length}')
             predictor =  Predictor.deserialize(Path(modeldir))
             print(f'loading model...done!, ctx:{predictor.ctx}')
+            
+        # deepAR-Oracle
+        elif model_name == 'oracle':
+            #
+            # debug for weighted model
+            #
+
+            model=f'deepARW-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_oracle_t{prediction_length}'
+            modeldir = rootdir + model
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  Predictor.deserialize(Path(modeldir))
+            print(f'loading model...{model}...done!, ctx:{predictor.ctx}')
         # deepAR-Oracle
         elif model_name == 'oracle-laponly':
             model=f'deepAR-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_oracle-laponly_t{prediction_length}'
@@ -3039,9 +3054,9 @@ def run_simulation_shortterm(predictor, prediction_length, freq,
         debug_print(f'simulation done: {len(forecast)}')
         # calc rank from this result
         if _exp_id=='rank' or _exp_id=='timediff2rank':
-            forecasts_et = eval_stint_direct(forecast, 2)
+            forecasts_et = eval_stint_direct(forecast, prediction_length)
         elif _exp_id=='laptime2rank':
-            forecasts_et = eval_stint_bylaptime(forecast, 2, global_start_offset[_test_event])
+            forecasts_et = eval_stint_bylaptime(forecast, prediction_length, global_start_offset[_test_event])
 
         else:
             print(f'Error, {_exp_id} evaluation not support yet')
@@ -3054,9 +3069,12 @@ def run_simulation_shortterm(predictor, prediction_length, freq,
         rankret.extend(ret)
 
         # add to full_samples
+        evalbyrank = False if _exp_id == 'laptime2rank' else True
         eval_full_samples(pitlap + prediction_length,
                 forecast_samples, forecast, 
-                full_samples, full_tss)
+                full_samples, full_tss, evalbyrank=evalbyrank)
+
+    print('evalbyrank:', evalbyrank)
 
     #add to df
     df = pd.DataFrame(rankret, columns =['carno', 'startlap', 'startrank', 
@@ -3542,7 +3560,7 @@ def eval_stint_bylaptime(forecasts_et, prediction_length, start_offset):
     return forecasts_et
 
 #
-def eval_full_samples(lap, forecast_samples, forecast, full_samples, full_tss, maxlap=200):
+def eval_full_samples_old(lap, forecast_samples, forecast, full_samples, full_tss, maxlap=200):
     """
     input:
         lap  ; lap number
@@ -3587,6 +3605,72 @@ def eval_full_samples(lap, forecast_samples, forecast, full_samples, full_tss, m
     idx = np.argsort(diff_time_hat, axis=0)
     pred_rank = np.argsort(idx, axis=0)
         
+    # save the rank back
+    for carno in carlist:
+        if carno not in full_tss:
+            #init
+            full_tss[carno] = np.zeros((maxlap))
+            full_samples[carno] = np.zeros((samplecnt, maxlap))
+            full_tss[carno][:] = np.nan
+            full_samples[carno][:,:] = np.nan
+            full_tss[carno][:lap] = true_rank[caridmap[carno]][:lap]
+
+        full_tss[carno][lap] = true_rank[caridmap[carno]][lap]
+        
+        full_samples[carno][:, lap] = pred_rank[caridmap[carno],:]
+    
+    return 
+
+#
+def eval_full_samples(lap, forecast_samples, forecast, full_samples, full_tss, maxlap=200, evalbyrank = True):
+    """
+    input:
+        lap  ; lap number
+        forecast_samples; {} cano -> samples ore pred target
+        forecast    ; {}, carno -> 5 x totallen matrix 
+            1,: -> true target
+            2,: -> pred target
+    return:
+        full_samples
+        full_tss
+    """
+
+    #get car list for this lap
+    carlist = list(forecast.keys())
+    #print('carlist:', carlist)
+
+    caridmap={key:idx for idx, key in enumerate(carlist)}    
+
+    #convert to elapsedtime
+    #todo, Indy500 - > 200 max laps
+    samplecnt = len(forecast_samples[carlist[0]])
+    
+    #diff_time = np.zeros((len(carlist), 1))
+    diff_time = np.zeros((len(carlist), maxlap))
+    diff_time_hat = np.zeros((len(carlist), samplecnt))
+    diff_time[:,:] = np.nan
+    diff_time_hat[:,:] = np.nan
+    
+    for carno in carlist:
+        #diff_time[caridmap[carno],0] = forecast[carno][1, lap]
+        maxlen = len(forecast[carno][1, :])
+
+        diff_time[caridmap[carno],:maxlen] = forecast[carno][1, :]
+        
+        diff_time_hat[caridmap[carno],:] = forecast_samples[carno]
+        
+    
+    if evalbyrank == True:
+        #calculate rank, support nan
+        idx = np.argsort(diff_time, axis=0)
+        true_rank = np.argsort(idx, axis=0)
+
+        idx = np.argsort(diff_time_hat, axis=0)
+        pred_rank = np.argsort(idx, axis=0)
+    else:
+        true_rank = diff_time
+        pred_rank = diff_time_hat
+            
     # save the rank back
     for carno in carlist:
         if carno not in full_tss:
@@ -3883,7 +3967,8 @@ _inlap_status = 1
 _force_endpit_align = False
 _include_endpit = False
 
-_use_mean = False   # mean or median to get prediction from samples
+#_use_mean = False   # mean or median to get prediction from samples
+_use_mean = True   # mean or median to get prediction from samples
 
 # In[16]:
 global_start_offset = {}

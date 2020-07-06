@@ -57,7 +57,7 @@ from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
 from indycar.model.NaivePredictor import NaivePredictor
-from indycar.model.deeparw import DeepARWEstimator
+from indycar.model.deeparw import DeepARWeightEstimator
 
 
 logger = logging.getLogger(__name__)
@@ -302,7 +302,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
     elif model == 'deepARW-Oracle':
 
         if use_feat_static:
-            estimator = DeepARWEstimator(
+            estimator = DeepARWeightEstimator(
                 prediction_length=prediction_length,
                 context_length= context_length,
                 use_feat_static_cat=use_feat_static,
@@ -314,11 +314,12 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                                 batch_size = batch_size,
                                 epochs=epochs, 
                                 learning_rate=1e-3, 
+                                #hybridize=False,
                                 num_batches_per_epoch=100
                                )
                 )
         else:
-            estimator = DeepARWEstimator(
+            estimator = DeepARWeightEstimator(
                 prediction_length=prediction_length,
                 context_length= context_length,
                 use_feat_static_cat=use_feat_static,
@@ -330,6 +331,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                                 batch_size = batch_size,
                                 epochs=epochs, 
                                 learning_rate=1e-3, 
+                                #hybridize=False,
                                 num_batches_per_epoch=100
                                )
                 )
