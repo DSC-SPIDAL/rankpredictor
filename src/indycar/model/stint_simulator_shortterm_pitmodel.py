@@ -901,11 +901,13 @@ def run_prediction_ex(test_ds, prediction_length, model_name,trainid):
 
         return pred_ret     
     
-def load_model(prediction_length, model_name,trainid,exproot='remote'):
+def load_model(prediction_length, model_name,trainid,epochs=1000, exproot='../models/remote'):
     with mx.Context(mx.gpu(7)):    
         pred_ret = []
 
-        rootdir = f'../models/{exproot}/{_dataset_id}/{_task_id}-{trainid}/'
+        #rootdir = f'../models/{exproot}/{_dataset_id}/{_task_id}-{trainid}/'
+        rootdir = f'{exproot}/{_dataset_id}/{_task_id}-{trainid}/'
+
         # deepAR-Oracle
         if model_name == 'curtrack':
             model=f'deepAR-Oracle-{_task_id}-curtrack-indy-f1min-t{prediction_length}-e1000-r1_curtrack_t{prediction_length}'
@@ -934,7 +936,8 @@ def load_model(prediction_length, model_name,trainid,exproot='remote'):
             # debug for weighted model
             #
 
-            model=f'deepARW-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_oracle_t{prediction_length}'
+            #model=f'deepARW-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_oracle_t{prediction_length}'
+            model=f'deepARW-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e{epochs}-r1_oracle_t{prediction_length}'
             modeldir = rootdir + model
             print(f'predicting model={model_name}, plen={prediction_length}')
             predictor =  Predictor.deserialize(Path(modeldir))
