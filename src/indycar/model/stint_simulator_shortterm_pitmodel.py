@@ -94,9 +94,12 @@ COL_LAPSTATUS_SAVE = 0   #laptime no use
 COL_CAUTION_LAPS_INSTINT_SAVE=7
 COL_LAPS_INSTINT_SAVE= 8
 
+# added new features
+COL_LEADER_PITCNT = 9
 
 FEATURE_STATUS = 2
 FEATURE_PITAGE = 4
+FEATURE_LEADERPITCNT = 8
 
 # oracle mode
 MODE_ORACLE = 1024  # oracle = track + lap
@@ -129,15 +132,18 @@ _mode_map = {MODE_ORACLE:'MODE_ORACLE',MODE_ORACLE_TRACKONLY:'MODE_ORACLE_TRACKO
             MODE_DISTURB_ADJUSTPIT:'MODE_DISTURB_ADJUSTPIT'}
 
 
-# In[ ]:
+#
+# interface with QuickTest
+#
+def set_laptimedata(newdata):
+    global laptime_data
 
+    print('Set a new global laptime_data')
+    laptime_data = newdata
 
-
-
-
-# In[4]:
-
-
+#
+#
+#
 def load_data(event, year=0):
     #inputfile = '../data/final/C_'+ event +'-' + year + '-final.csv'
     if year>0:
@@ -2055,6 +2061,8 @@ def sim_onestep_pred(predictor, prediction_length, freq,
             max_len = int(np.max(ts_len))
 
             #ipdb.set_trace()
+            if verbose:
+                print(f'after ====event:{events[_data[0]]}, prediction_len={prediction_length},train_len={train_len}, max_len={np.max(ts_len)}, min_len={np.min(ts_len)}, cars={_data[2].shape[0]}')
 
             # process for each ts
             for rowid in range(_data[2].shape[0]):
@@ -2081,7 +2089,9 @@ def sim_onestep_pred(predictor, prediction_length, freq,
                 carid = global_carids[_data[1][rowid]]
                 
                 static_cat = [carid]    
-                    
+                 
+
+
                 #first, get target a copy    
                 # target can be COL_XXSTATUS
                 #target_val = rec[run_ts,:].copy().astype(np.float32)
@@ -2089,6 +2099,9 @@ def sim_onestep_pred(predictor, prediction_length, freq,
                 lap_status = rec[COL_LAPSTATUS, :].copy()
                 track_status = rec[COL_TRACKSTATUS, :].copy()
                 pitage_status = rec[COL_LAPS_INSTINT,:].copy()
+                
+                
+
                 # <3, totallen> 
                 if carno not in forecasts_et:
                     forecasts_et[carno] = np.zeros((5, totallen))
@@ -2159,20 +2172,21 @@ def sim_onestep_pred(predictor, prediction_length, freq,
                             pitage_rec[-prediction_length + pos] = start_pitage
 
                 # add to test set
-                if feature_mode == FEATURE_STATUS:
-                    _test.append({'target': target_val[:endpos].astype(np.float32), 
-                            'start': start, 
-                            'feat_static_cat': static_cat,
-                            'feat_dynamic_real': [track_rec,lap_rec]
-                             }
-                          )   
-                elif feature_mode == FEATURE_PITAGE:
-                    _test.append({'target': target_val[:endpos].astype(np.float32), 
-                                'start': start, 
-                                'feat_static_cat': static_cat,
-                                'feat_dynamic_real': [track_rec,lap_rec,pitage_rec]
-                                 }
-                              )   
+
+                #train real features
+                real_features = {
+                    FEATURE_STATUS:[track_rec,lap_rec],
+                    FEATURE_PITAGE:[track_rec,lap_rec,pitage_rec],
+                    FEATURE_LEADERPITCNT:[track_rec,lap_rec,rec[COL_LEADER_PITCNT,:endpos]]
+                }
+
+                _test.append({'target': target_val[:endpos].astype(np.float32), 
+                        'start': start, 
+                        'feat_static_cat': static_cat,
+                        'feat_dynamic_real': real_features[feature_mode]
+                         }
+                      )   
+
                 test_rec_cnt += 1
 
                 #debug
@@ -2948,7 +2962,7 @@ def run_simulation_stint(predictor, prediction_length, freq,
 
 
 def run_simulation_pred(predictor, prediction_length, freq, 
-                   datamode = MODE_ORACLE):
+                   datamode = MODE_ORACLE, verbose = False):
     """
     step:
         1. init the lap status model
@@ -2990,7 +3004,8 @@ def run_simulation_pred(predictor, prediction_length, freq,
         forecast, forecast_samples = sim_onestep_pred(predictor, prediction_length, freq,
                 pitlap, max(maxnext, maxnext_pred),
                 oracle_mode = datamode,
-                sample_cnt = 100
+                sample_cnt = 100,
+                verbose = verbose
                 )
 
         debug_print(f'simulation done: {len(forecast)}')
@@ -3051,7 +3066,8 @@ def run_simulation_shortterm(predictor, prediction_length, freq,
         forecast, forecast_samples = sim_onestep_pred(predictor, prediction_length, freq,
                 pitlap, pitlap + prediction_length,
                 oracle_mode = datamode,
-                sample_cnt = sample_cnt
+                sample_cnt = sample_cnt,
+                verbose = True
                 )
 
         debug_print(f'simulation done: {len(forecast)}')
@@ -3977,6 +3993,7 @@ _use_mean = True   # mean or median to get prediction from samples
 global_start_offset = {}
 global_carids = {}
 laptime_data = None
+laptime_data_save = None
 freq = "1min"
 decode_carids = {}
 
@@ -4009,7 +4026,9 @@ def init(pitmodel = ''):
     with open(laptimefile, 'rb') as f:
         # The protocol version used is detected automatically, so we do not
         # have to specify it.
-        global_carids, laptime_data = pickle.load(f, encoding='latin1') 
+        global_carids, laptime_data = pickle.load(f, encoding='latin1')
+
+        laptime_data_save = laptime_data
     
     decode_carids={carid:carno for carno, carid in global_carids.items()}
     print(f'init: load dataset {laptimefile} with {len(laptime_data)} races, {len(global_carids)} cars')
