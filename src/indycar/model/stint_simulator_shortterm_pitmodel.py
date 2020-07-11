@@ -94,12 +94,35 @@ COL_LAPSTATUS_SAVE = 0   #laptime no use
 COL_CAUTION_LAPS_INSTINT_SAVE=7
 COL_LAPS_INSTINT_SAVE= 8
 
+
 # added new features
 COL_LEADER_PITCNT = 9
+COL_TOTAL_PITCNT = 10
+COL_SHIFT_TRACKSTATUS = 11
+COL_SHIFT_LAPSTATUS = 12
+COL_SHIFT_LEADER_PITCNT = 13
+COL_SHIFT_TOTAL_PITCNT = 14
+
 
 FEATURE_STATUS = 2
 FEATURE_PITAGE = 4
-FEATURE_LEADERPITCNT = 8
+FEATURE_LEADER_PITCNT = 8
+FEATURE_TOTAL_PITCNT = 16
+FEATURE_SHIFT_TRACKSTATUS = 32
+FEATURE_SHIFT_LAPSTATUS = 64
+FEATURE_SHIFT_LEADER_PITCNT = 128
+FEATURE_SHIFT_TOTAL_PITCNT  = 256
+
+_feature2str= {
+    FEATURE_STATUS : ("FEATURE_STATUS",'S'),
+                     FEATURE_PITAGE : ("FEATURE_PITAGE",'P'),
+                     FEATURE_LEADER_PITCNT : ("FEATURE_LEADER_PITCNT",'L'),
+                     FEATURE_TOTAL_PITCNT : ("FEATURE_TOTAL_PITCNT",'T'),
+                     FEATURE_SHIFT_TRACKSTATUS : ("FEATURE_SHIFT_TRACKSTATUS",'S'),
+                     FEATURE_SHIFT_LAPSTATUS : ("FEATURE_SHIFT_LAPSTATUS",'P'),
+                     FEATURE_SHIFT_LEADER_PITCNT : ("FEATURE_SHIFT_LEADER_PITCNT",'L'),
+                     FEATURE_SHIFT_TOTAL_PITCNT  : ("FEATURE_SHIFT_TOTAL_PITCNT"'T')
+}
 
 # oracle mode
 MODE_ORACLE = 1024  # oracle = track + lap
@@ -131,7 +154,73 @@ _mode_map = {MODE_ORACLE:'MODE_ORACLE',MODE_ORACLE_TRACKONLY:'MODE_ORACLE_TRACKO
             MODE_DISTURB_CLEARTRACK:'MODE_DISTURB_CLEARTRACK',MODE_DISTURB_ADJUSTTRACK:'MODE_DISTURB_ADJUSTTRACK',
             MODE_DISTURB_ADJUSTPIT:'MODE_DISTURB_ADJUSTPIT'}
 
+def get_real_features(feature_mode, rec, endpos):
+    """
+    construct the real value feature vector from feature_mode
 
+    legacy code:
+        real_features = {
+            FEATURE_STATUS:[rec[COL_TRACKSTATUS,:],rec[COL_LAPSTATUS,:]],
+            FEATURE_PITAGE:[rec[COL_TRACKSTATUS,:],rec[COL_LAPSTATUS,:],rec[COL_LAPS_INSTINT,:]],
+            FEATURE_LEADERPITCNT:[rec[COL_TRACKSTATUS,:],rec[COL_LAPSTATUS,:],rec[COL_LEADER_PITCNT,:]],
+            FEATURE_TOTALPITCNT:[rec[COL_TRACKSTATUS,:],rec[COL_LAPSTATUS,:],rec[COL_TOTAL_PITCNT,:]]
+        }    
+    
+        real_features[feature_mode]
+        
+        
+        COL_LEADER_PITCNT = 9
+        COL_TOTAL_PITCNT = 10
+        COL_SHIFT_TRACKSTATUS = 11
+        COL_SHIFT_LAPSTATUS = 12
+        COL_SHIFT_LEADER_PITCNT = 13
+        COL_SHIFT_TOTAL_PITCNT = 14
+
+
+        FEATURE_STATUS = 2
+        FEATURE_PITAGE = 4
+        FEATURE_LEADER_PITCNT = 8
+        FEATURE_TOTAL_PITCNT = 16
+        FEATURE_SHIFT_TRACKSTATUS = 32
+        FEATURE_SHIFT_LAPSTATUS = 64
+        FEATURE_SHIFT_LEADER_PITCNT = 128
+        FEATURE_SHIFT_TOTAL_PITCNT  = 256        
+    
+    """
+    
+    features = []
+    
+    #check endpos
+    if endpos <=0 :
+        endpos = rec.shape[1]
+    
+    if test_flag(feature_mode, FEATURE_STATUS):
+        features.append(rec[COL_TRACKSTATUS,:endpos])
+        features.append(rec[COL_LAPSTATUS,:endpos])
+        
+    if test_flag(feature_mode, FEATURE_PITAGE):
+        features.append(rec[COL_LAPS_INSTINT,:endpos])
+        
+    if test_flag(feature_mode, FEATURE_LEADER_PITCNT):
+        features.append(rec[COL_LEADER_PITCNT,:endpos])
+        
+    if test_flag(feature_mode, FEATURE_TOTAL_PITCNT):
+        features.append(rec[COL_TOTAL_PITCNT,:endpos])    
+        
+    if test_flag(feature_mode, FEATURE_SHIFT_TRACKSTATUS):
+        features.append(rec[COL_SHIFT_TRACKSTATUS,:endpos])    
+        
+    if test_flag(feature_mode, FEATURE_SHIFT_LAPSTATUS):
+        features.append(rec[COL_SHIFT_LAPSTATUS,:endpos])    
+
+    if test_flag(feature_mode, FEATURE_SHIFT_LEADER_PITCNT):
+        features.append(rec[COL_SHIFT_LEADER_PITCNT,:endpos])    
+
+    if test_flag(feature_mode, FEATURE_SHIFT_TOTAL_PITCNT):
+        features.append(rec[COL_SHIFT_TOTAL_PITCNT,:endpos])    
+        
+        
+    return features
 #
 # interface with QuickTest
 #
@@ -2174,16 +2263,12 @@ def sim_onestep_pred(predictor, prediction_length, freq,
                 # add to test set
 
                 #train real features
-                real_features = {
-                    FEATURE_STATUS:[track_rec,lap_rec],
-                    FEATURE_PITAGE:[track_rec,lap_rec,pitage_rec],
-                    FEATURE_LEADERPITCNT:[track_rec,lap_rec,rec[COL_LEADER_PITCNT,:endpos]]
-                }
+                real_features = get_real_features(feature_mode, rec, endpos)
 
                 _test.append({'target': target_val[:endpos].astype(np.float32), 
                         'start': start, 
                         'feat_static_cat': static_cat,
-                        'feat_dynamic_real': real_features[feature_mode]
+                        'feat_dynamic_real': real_features
                          }
                       )   
 
