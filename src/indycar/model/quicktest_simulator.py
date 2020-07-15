@@ -1715,6 +1715,12 @@ def run_simulation_pred(predictor, prediction_length, freq,
         if not (isinstance(_pitmodel, str) and _pitmodel == 'oracle'):
             update_lapstatus(pitlap)
 
+            #update the featuers
+            laptime_data = update_laptimedata(prediction_length, freq, 
+                        test_event = _test_event,
+                        train_ratio=0, context_ratio = 0.,shift_len = prediction_length)
+
+
         debug_print(f'update lapstatus done.')
         #2. get maxnext
         allpits_pred, pitmat_pred, maxlap = get_pitlaps()
@@ -2157,6 +2163,8 @@ years = ['2013','2014','2015','2016','2017','2018','2019']
 events = [f'Indy500-{x}' for x in years]
 events_id={key:idx for idx, key in enumerate(events)}
 dbid = f'Indy500_{years[0]}_{years[-1]}_v9_p{_inlap_status}'
+
+_trim = 0
 
 def init(pitmodel = ''):
     global global_carids, laptime_data, global_start_offset, decode_carids,_pitmodel

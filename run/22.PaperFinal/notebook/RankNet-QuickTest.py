@@ -47,7 +47,8 @@ from gluonts.distribution.multivariate_gaussian import MultivariateGaussianOutpu
 from indycar.model.NaivePredictor import NaivePredictor
 from indycar.model.deeparw import DeepARWeightEstimator
 
-import indycar.model.stint_simulator_shortterm_pitmodel as stint
+#import indycar.model.stint_simulator_shortterm_pitmodel as stint
+import indycar.model.quicktest_simulator as stint
 
 
 # In[ ]:
@@ -423,10 +424,42 @@ COL_LAP2NEXTPIT = 8
 
 # added new features
 COL_LEADER_PITCNT = 9
+COL_TOTAL_PITCNT = 10
+COL_SHIFT_TRACKSTATUS = 11
+COL_SHIFT_LAPSTATUS = 12
+COL_SHIFT_LEADER_PITCNT = 13
+COL_SHIFT_TOTAL_PITCNT = 14
+
+COL_LASTFEATURE = 14
+# dynamically extended space in simulation
+COL_TRACKSTATUS_SAVE = COL_LASTFEATURE+1
+COL_LAPSTATUS_SAVE = COL_LASTFEATURE+2
+COL_CAUTION_LAPS_INSTINT_SAVE = COL_LASTFEATURE+3
+COL_LAPS_INSTINT_SAVE= COL_LASTFEATURE+4
+
+COL_ENDPOS = COL_LASTFEATURE+5
+
 
 FEATURE_STATUS = 2
 FEATURE_PITAGE = 4
-FEATURE_LEADERPITCNT = 8
+FEATURE_LEADER_PITCNT = 8
+FEATURE_TOTAL_PITCNT = 16
+FEATURE_SHIFT_TRACKSTATUS = 32
+FEATURE_SHIFT_LAPSTATUS = 64
+FEATURE_SHIFT_LEADER_PITCNT = 128
+FEATURE_SHIFT_TOTAL_PITCNT  = 256
+
+_feature2str= {
+    FEATURE_STATUS : ("FEATURE_STATUS",'S'),
+    FEATURE_PITAGE : ("FEATURE_PITAGE",'A'),
+    FEATURE_LEADER_PITCNT : ("FEATURE_LEADER_PITCNT",'L'),
+    FEATURE_TOTAL_PITCNT : ("FEATURE_TOTAL_PITCNT",'T'),
+    FEATURE_SHIFT_TRACKSTATUS : ("FEATURE_SHIFT_TRACKSTATUS",'Y'),
+    FEATURE_SHIFT_LAPSTATUS : ("FEATURE_SHIFT_LAPSTATUS",'P'),
+    FEATURE_SHIFT_LEADER_PITCNT : ("FEATURE_SHIFT_LEADER_PITCNT",'L'),
+    FEATURE_SHIFT_TOTAL_PITCNT  : ("FEATURE_SHIFT_TOTAL_PITCNT",'T')
+    }
+
 
 MODE_ORACLE = 0
 MODE_NOLAP = 1
@@ -436,11 +469,32 @@ MODE_TESTCURTRACK = 8
 #MODE_STR={MODE_ORACLE:'oracle', MODE_NOLAP:'nolap',MODE_NOTRACK:'notrack',MODE_TEST:'test'}
 
 #_feature_mode = FEATURE_STATUS
+def decode_feature_mode(feature_mode):
+    
+    retstr = []
+    short_ret = []
+    for feature in _feature2str.keys():
+        if test_flag(feature_mode, feature):
+            retstr.append(_feature2str[feature][0])
+            short_ret.append(_feature2str[feature][1])
+        else:
+            short_ret.append('0')
+
+    print(' '.join(retstr))
+    
+    return ''.join(short_ret)
 
 
-def add_leader_cnt(selmat, rank_col=COL_RANK, pit_col=COL_LAPSTATUS):
+def add_leader_cnt(selmat, rank_col=COL_RANK, pit_col=COL_LAPSTATUS, shift_len = 0, 
+                   dest_col = COL_LEADER_PITCNT,
+                   verbose = False):
     """
     add a new feature into mat(car, feature, lap)
+    
+    shift rank status
+    
+    input:
+        sel_mat : laptime_data array [car, feature, lap]
     
     """
     dim1, dim2, dim3 = selmat.shape
@@ -449,27 +503,163 @@ def add_leader_cnt(selmat, rank_col=COL_RANK, pit_col=COL_LAPSTATUS):
     idx = np.argsort(selmat[:, rank_col,:], axis=0)
     true_rank = np.argsort(idx, axis=0).astype(np.float)
 
-    # get leaderCnt
+    # get leaderCnt by sorted pits
     pits = np.zeros((dim1,dim3))
-    for lap in range(dim3):
-        col = idx[:, lap]
+    
+    for lap in range(shift_len, dim3):
+        col = idx[:, lap-shift_len]
         pits[:, lap] = selmat[col, pit_col, lap]
     
-    leaderCnt = np.cumsum(pits, axis=0) - pits
+    leaderCnt = np.nancumsum(pits, axis=0) - pits
     
-    #create a new data
-    newmat = np.zeros((dim1,dim2+1,dim3))
-    newmat[:,:dim2,:] = selmat.copy()
+    if verbose:
+        print('pits:\n')
+        print(pits[:,190:])
+        print('leaderCnt raw:\n')
+        print(leaderCnt[:,190:])
+    
+    #remove nans
+    nanidx = np.isnan(leaderCnt)
+    leaderCnt[nanidx] = 0
+    
+    if verbose:
+        print('leaderCnt after remove nan:\n')
+        print(leaderCnt[:,190:])
+    
+    if dest_col == -1:
+        #create a new data
+        newmat = np.zeros((dim1,dim2+1,dim3))
+        dest_col = dim2
+        newmat[:,:dim2,:] = selmat.copy()
+    else:
+        #update mode
+        newmat = selmat
+    
     for lap in range(dim3):
         col = idx[:, lap]
-        newmat[col, dim2, lap] = leaderCnt[:, lap]
+        newmat[col, dest_col, lap] = leaderCnt[:, lap]
         
+    # sync length to COL_RANK
+    for rec in newmat:
+        nans, x= nan_helper(rec[rank_col,:])
+        nan_count = np.sum(nans)
+        if nan_count > 0:
+            #todo, some invalid nan, remove them
+            #rec[dim2, np.isnan(rec[dim2,:])] = 0
+            rec[dest_col, -nan_count:] = np.nan
+    
     return newmat
+
+def add_allpit_cnt(selmat, rank_col=COL_RANK, pit_col=COL_LAPSTATUS, 
+                   dest_col = COL_TOTAL_PITCNT,verbose = False):
+    """
+    add a new feature into mat(car, feature, lap)
+    
+    total pits in a lap
+    
+    input:
+        sel_mat : laptime_data array [car, feature, lap]
+    
+    """
+    dim1, dim2, dim3 = selmat.shape
+
+    #calc totalCnt vector for 
+    totalCnt = np.nansum(selmat[:, pit_col, :], axis=0).reshape((-1))
+    
+    if verbose:
+        print('pits:\n')
+        print(pits[:,190:])
+        print('totalCnt raw:\n')
+        print(totalCnt[190:])
+    
+    #remove nans
+    nanidx = np.isnan(totalCnt)
+    totalCnt[nanidx] = 0
+    
+    if verbose:
+        print('totalCnt after remove nan:\n')
+        print(totalCnt[190:])
+    
+    if dest_col == -1:
+        #create a new data
+        newmat = np.zeros((dim1,dim2+1,dim3))
+        dest_col = dim2
+        newmat[:,:dim2,:] = selmat.copy()
+    else:
+        #update mode
+        newmat = selmat
+
+    for car in range(dim1):
+        newmat[car, dest_col, :] = totalCnt
+        
+    # sync length to COL_RANK
+    for rec in newmat:
+        nans, x= nan_helper(rec[rank_col,:])
+        nan_count = np.sum(nans)
+        if nan_count > 0:
+            #todo, some invalid nan, remove them
+            #rec[dim2, np.isnan(rec[dim2,:])] = 0
+            rec[dest_col, -nan_count:] = np.nan
+    
+    return newmat
+
+def add_shift_feature(selmat, rank_col=COL_RANK, shift_col=COL_LAPSTATUS, shift_len = 2, 
+                      dest_col = -1,verbose = False):
+    """
+    add a new feature into mat(car, feature, lap)
+    
+    shift features left in a lap
+    
+    warning: these are oracle features, be careful not to let future rank positions leaking
+    
+    input:
+        sel_mat : laptime_data array [car, feature, lap]
+    
+    """
+    dim1, dim2, dim3 = selmat.shape
+
+    if dest_col == -1:
+        #create a new data
+        newmat = np.zeros((dim1,dim2+1,dim3))
+        dest_col = dim2
+        newmat[:,:dim2,:] = selmat.copy()
+    else:
+        #update mode
+        newmat = selmat
+    
+    for car in range(dim1):
+        # set empty status by default
+        newmat[car, dest_col, :] = np.nan
+        
+        # get valid laps
+        rec = selmat[car]
+        nans, x= nan_helper(rec[rank_col,:])
+        nan_count = np.sum(nans)
+        recnnz = rec[shift_col, ~np.isnan(rec[rank_col,:])]
+        reclen = len(recnnz)
+
+        #shift copy
+        newmat[car, dest_col, :reclen] = 0
+        #newmat[car, dim2, :-shift_len] = selmat[car, shift_col, shift_len:]
+        newmat[car, dest_col, :reclen-shift_len] = recnnz[shift_len:]
+        
+    # sync length to COL_RANK
+    #for rec in newmat:
+    #    nans, x= nan_helper(rec[rank_col,:])
+    #    nan_count = np.sum(nans)
+    #    if nan_count > 0:
+    #        #todo, some invalid nan, remove them
+    #        #rec[dim2, np.isnan(rec[dim2,:])] = 0
+    #        rec[dim2, -nan_count:] = np.nan
+    
+    return newmat
+
 
 def prepare_laptimedata(prediction_length, freq, 
                        test_event = 'Indy500-2018',
                        train_ratio=0.8,
-                       context_ratio = 0.):
+                       context_ratio = 0.,
+                       shift_len = -1):
     """
     prepare the laptime data for training
     
@@ -487,6 +677,11 @@ def prepare_laptimedata(prediction_length, freq,
     
     test_eventid = events_id[test_event]
     run_ts = COL_RANK
+    
+    # check shift len
+    if shift_len < 0:
+        shift_len = prediction_length
+    print('prepare_laptimedata shift len:', shift_len)
     
     #_data: eventid, carids, datalist[carnumbers, features, lapnumber]->[laptime, rank, track, lap]]
     new_data = []
@@ -522,6 +717,14 @@ def prepare_laptimedata(prediction_length, freq,
         #if run_ts == COL_RANK and dorerank == True:
         if True:
             sel_rows = []
+            
+            # use to check the dimension of features
+            input_feature_cnt = _data[2].shape[1]
+            if input_feature_cnt < COL_LASTFEATURE + 1:
+                print('create new features mode, feature_cnt:', input_feature_cnt)
+            else:
+                print('update features mode, feature_cnt:', input_feature_cnt)
+            
             for rowid in range(_data[2].shape[0]):
                 # rec[features, lapnumber] -> [laptime, rank, track_status, lap_status,timediff]]
                 rec = _data[2][rowid].copy()
@@ -566,12 +769,120 @@ def prepare_laptimedata(prediction_length, freq,
                 new_carids[rowid] = carno
 
                 
-            # add new feature
-            data2_newfeature = add_leader_cnt(_data[2][sel_idx])
+            # add new features
+            # add leaderPitCnt
+            if _data[0]==0:
+                verbose = True
+            else:
+                verbose = False
+                
+
+            dest_col = -1 if input_feature_cnt < COL_LASTFEATURE + 1 else COL_LEADER_PITCNT
+            data2_intermediate = add_leader_cnt(_data[2][sel_idx], shift_len = shift_len, dest_col=dest_col, verbose = verbose)
+            
+            # add totalPit
+            dest_col = -1 if input_feature_cnt < COL_LASTFEATURE + 1 else COL_TOTAL_PITCNT
+            data2_intermediate = add_allpit_cnt(data2_intermediate, dest_col=dest_col)
+            
+            #
+            # add shift features, a fixed order, see the MACROS 
+            #COL_SHIFT_TRACKSTATUS = 11
+            #COL_SHIFT_LAPSTATUS = 12
+            #COL_SHIFT_LEADER_PITCNT = 13
+            #COL_SHIFT_TOTAL_PITCNT = 14
+            #
+            dest_col = -1 if input_feature_cnt < COL_LASTFEATURE + 1 else COL_SHIFT_TRACKSTATUS
+            data2_intermediate = add_shift_feature(data2_intermediate, dest_col=dest_col,
+                                                   shift_col=COL_TRACKSTATUS, shift_len = shift_len)
+            
+            dest_col = -1 if input_feature_cnt < COL_LASTFEATURE + 1 else COL_SHIFT_LAPSTATUS
+            data2_intermediate = add_shift_feature(data2_intermediate, dest_col=dest_col,
+                                                   shift_col=COL_LAPSTATUS, shift_len = shift_len)
+            
+            # leader_pitcnt can not be shift, target leaking, just do not use it
+            dest_col = -1 if input_feature_cnt < COL_LASTFEATURE + 1 else COL_SHIFT_LEADER_PITCNT
+            data2_intermediate = add_shift_feature(data2_intermediate, dest_col=dest_col,
+                                                   shift_col=COL_LEADER_PITCNT, shift_len = shift_len)
+            
+            dest_col = -1 if input_feature_cnt < COL_LASTFEATURE + 1 else COL_SHIFT_TOTAL_PITCNT
+            data2_intermediate = add_shift_feature(data2_intermediate, dest_col=dest_col,
+                                                   shift_col=COL_TOTAL_PITCNT, shift_len = shift_len)
+            
+            # final
+            data2_newfeature = data2_intermediate
             
         new_data.append([_data[0], new_carids, data2_newfeature])
         
     return new_data
+
+
+def get_real_features(feature_mode, rec, endpos):
+    """
+    construct the real value feature vector from feature_mode
+
+    legacy code:
+        real_features = {
+            FEATURE_STATUS:[rec[COL_TRACKSTATUS,:],rec[COL_LAPSTATUS,:]],
+            FEATURE_PITAGE:[rec[COL_TRACKSTATUS,:],rec[COL_LAPSTATUS,:],rec[COL_LAPS_INSTINT,:]],
+            FEATURE_LEADERPITCNT:[rec[COL_TRACKSTATUS,:],rec[COL_LAPSTATUS,:],rec[COL_LEADER_PITCNT,:]],
+            FEATURE_TOTALPITCNT:[rec[COL_TRACKSTATUS,:],rec[COL_LAPSTATUS,:],rec[COL_TOTAL_PITCNT,:]]
+        }    
+    
+        real_features[feature_mode]
+        
+        
+        COL_LEADER_PITCNT = 9
+        COL_TOTAL_PITCNT = 10
+        COL_SHIFT_TRACKSTATUS = 11
+        COL_SHIFT_LAPSTATUS = 12
+        COL_SHIFT_LEADER_PITCNT = 13
+        COL_SHIFT_TOTAL_PITCNT = 14
+
+
+        FEATURE_STATUS = 2
+        FEATURE_PITAGE = 4
+        FEATURE_LEADER_PITCNT = 8
+        FEATURE_TOTAL_PITCNT = 16
+        FEATURE_SHIFT_TRACKSTATUS = 32
+        FEATURE_SHIFT_LAPSTATUS = 64
+        FEATURE_SHIFT_LEADER_PITCNT = 128
+        FEATURE_SHIFT_TOTAL_PITCNT  = 256        
+    
+    """
+    
+    features = []
+    
+    #check endpos
+    if endpos <=0 :
+        endpos = rec.shape[1]
+    
+    if test_flag(feature_mode, FEATURE_STATUS):
+        features.append(rec[COL_TRACKSTATUS,:endpos])
+        features.append(rec[COL_LAPSTATUS,:endpos])
+        
+    if test_flag(feature_mode, FEATURE_PITAGE):
+        features.append(rec[COL_LAPS_INSTINT,:endpos])
+        
+    if test_flag(feature_mode, FEATURE_LEADER_PITCNT):
+        features.append(rec[COL_LEADER_PITCNT,:endpos])
+        
+    if test_flag(feature_mode, FEATURE_TOTAL_PITCNT):
+        features.append(rec[COL_TOTAL_PITCNT,:endpos])    
+        
+    if test_flag(feature_mode, FEATURE_SHIFT_TRACKSTATUS):
+        features.append(rec[COL_SHIFT_TRACKSTATUS,:endpos])    
+        
+    if test_flag(feature_mode, FEATURE_SHIFT_LAPSTATUS):
+        features.append(rec[COL_SHIFT_LAPSTATUS,:endpos])    
+
+    if test_flag(feature_mode, FEATURE_SHIFT_LEADER_PITCNT):
+        features.append(rec[COL_SHIFT_LEADER_PITCNT,:endpos])    
+
+    if test_flag(feature_mode, FEATURE_SHIFT_TOTAL_PITCNT):
+        features.append(rec[COL_SHIFT_TOTAL_PITCNT,:endpos])    
+        
+        
+    return features
 
 def make_dataset_byevent(_laptime_data, prediction_length, freq, 
                        useeid = False,
@@ -622,7 +933,7 @@ def make_dataset_byevent(_laptime_data, prediction_length, freq,
         train_len = int(np.max(ts_len) * train_ratio)
         if train_len == 0:
             #use global train_len
-            train_len = _train_len
+            train_len = _train_len if not test_mode else _test_train_len
         
         if context_ratio != 0.:
             # add this part to train set
@@ -685,19 +996,13 @@ def make_dataset_byevent(_laptime_data, prediction_length, freq,
 
             test_rec_cnt = 0
             if not test_mode:
-                
-                #train real features
-                real_features = {
-                    FEATURE_STATUS:[rec[COL_TRACKSTATUS,:],rec[COL_LAPSTATUS,:]],
-                    FEATURE_PITAGE:[rec[COL_TRACKSTATUS,:],rec[COL_LAPSTATUS,:],rec[COL_LAPS_INSTINT,:]],
-                    FEATURE_LEADERPITCNT:[rec[COL_TRACKSTATUS,:],rec[COL_LAPSTATUS,:],rec[COL_LEADER_PITCNT,:]]
-                }
-                
                 # all go to train set
+                real_features = get_real_features(feature_mode, rec, -1)
+                
                 _train.append({'target': target_val, 
                             'start': start, 
                             'feat_static_cat': static_cat,
-                            'feat_dynamic_real': real_features[feature_mode]
+                            'feat_dynamic_real': real_features
                           })
                     
             else:
@@ -705,19 +1010,11 @@ def make_dataset_byevent(_laptime_data, prediction_length, freq,
                 if context_ratio != 0.:
                     # all go to train set
                     #add [0, context_len] to train set 
-                              
-                    #train real features
-                    real_features = {
-                        FEATURE_STATUS:[rec[COL_TRACKSTATUS,:context_len],rec[COL_LAPSTATUS,:context_len]],
-                        FEATURE_PITAGE:[rec[COL_TRACKSTATUS,:context_len],rec[COL_LAPSTATUS,:context_len],rec[COL_LAPS_INSTINT,:context_len]],
-                        FEATURE_LEADERPITCNT:[rec[COL_TRACKSTATUS,:context_len],rec[COL_LAPSTATUS,:context_len],rec[COL_LEADER_PITCNT,:context_len]]
-                    }
-
                     # all go to train set
                     _train.append({'target': target_val[:context_len],  
                                 'start': start, 
                                 'feat_static_cat': static_cat,
-                                'feat_dynamic_real': real_features[feature_mode]
+                                'feat_dynamic_real': get_real_features(feature_mode, rec, context_len)
                               })
                               
                 # testset
@@ -731,23 +1028,21 @@ def make_dataset_byevent(_laptime_data, prediction_length, freq,
                     lap_rec = rec[COL_LAPSTATUS, :endpos].copy()
                     pitage_rec = rec[COL_LAPS_INSTINT, :endpos].copy()
 
-                    #train real features
-                    real_features = {
-                        FEATURE_STATUS:[track_rec,lap_rec],
-                        FEATURE_PITAGE:[track_rec,lap_rec,pitage_rec],
-                        FEATURE_LEADERPITCNT:[track_rec,lap_rec,rec[COL_LEADER_PITCNT,:endpos]]
-                    }
+                    real_features = get_real_features(feature_mode, rec, endpos)
                     
                     _test.append({'target': rec[run_ts,:endpos].astype(np.float32), 
                             'start': start, 
                             'feat_static_cat': static_cat,
-                            'feat_dynamic_real': real_features[feature_mode]
+                            'feat_dynamic_real': real_features
                              })
                                  
                     test_rec_cnt += 1
             
+            #check feature cnt
+            featureCnt = len(real_features)
+            
             #add one ts
-            print(f'carno:{carno}, totallen:{totallen}, nancount:{nan_count}, test_reccnt:{test_rec_cnt}')
+            print(f'carno:{carno}, totallen:{totallen}, nancount:{nan_count}, test_reccnt:{test_rec_cnt},featureCnt:{featureCnt}')
 
         train_set.extend(_train)
         test_set.extend(_test)
@@ -973,7 +1268,7 @@ def init_simulation(datasetid, testevent, taskid, runts, expid, predictionlen,
                featuremode = stint.FEATURE_STATUS,
                pitmodel = 0, 
                inlapmode=0,
-               train_len = 40):
+               train_len = 40,test_train_len=40):
     """
     input:
         prepared_laptimedata   ; global
@@ -1011,11 +1306,12 @@ def init_simulation(datasetid, testevent, taskid, runts, expid, predictionlen,
     stint._use_mean = True
     
     stint._train_len = train_len
+    stint._test_train_len = test_train_len
     
     
 def simulation(datasetid, testevent, taskid, runts, expid, predictionlen, 
                datamode, loopcnt, featuremode = stint.FEATURE_STATUS,
-              pitmodel = 0, model = 'oracle', inlapmode=0, train_len = 40):
+              pitmodel = 0, model = 'oracle', inlapmode=0, train_len = 40,test_train_len=40):
     """
     input:
         prepared_laptimedata   ; global
@@ -1052,6 +1348,7 @@ def simulation(datasetid, testevent, taskid, runts, expid, predictionlen,
     stint._use_mean = True
     
     stint._train_len = train_len
+    stint._test_train_len = test_train_len
     
     predictor = stint.load_model(predictionlen, model,trainid='indy500',epochs = epochs, exproot='./')
 
@@ -2341,6 +2638,15 @@ else:
 
 # new added parameters
 _test_train_len = 40
+#loopcnt = 2
+
+#featurestr = {FEATURE_STATUS:'nopitage',FEATURE_PITAGE:'pitage',FEATURE_LEADERPITCNT:'leaderpitcnt'}
+#cur_featurestr = featurestr[_feature_mode]
+print('current configfile:', configfile)
+cur_featurestr = decode_feature_mode(_feature_mode)
+print('feature_mode:', _feature_mode, cur_featurestr)
+print('testmodel:', testmodel)
+print('pitmodel:', pitmodel)
 
 
 # In[ ]:
@@ -2350,7 +2656,6 @@ _test_train_len = 40
 # string map
 #
 inlapstr = {0:'noinlap',1:'inlap',2:'outlap'}
-featurestr = {FEATURE_STATUS:'nopitage',FEATURE_PITAGE:'pitage',FEATURE_LEADERPITCNT:'leaderpitcnt'}
 weightstr = {True:'weighted',False:'noweighted'}
 catestr = {True:'cate',False:'nocate'}
 
@@ -2361,7 +2666,7 @@ years = ['2013','2014','2015','2016','2017','2018','2019']
 events = [f'Indy500-{x}' for x in years]
 events_id={key:idx for idx, key in enumerate(events)}
 dbid = f'Indy500_{years[0]}_{years[-1]}_v{_featureCnt}_p{_inlap_status}'
-_dataset_id = '%s-%s'%(inlapstr[_inlap_status], featurestr[_feature_mode])
+_dataset_id = '%s-%s'%(inlapstr[_inlap_status], cur_featurestr)
 
 
 #
@@ -2375,7 +2680,7 @@ distr_output = distr_outputs[distroutput]
 #
 #
 #
-experimentid = f'{weightstr[_use_weighted_model]}-{inlapstr[_inlap_status]}-{featurestr[_feature_mode]}-{catestr[_use_cate_feature]}-c{context_length}'
+experimentid = f'{weightstr[_use_weighted_model]}-{inlapstr[_inlap_status]}-{cur_featurestr}-{catestr[_use_cate_feature]}-c{context_length}'
 
 #
 #
@@ -2386,9 +2691,9 @@ outputRoot = f"{WorkRootDir}/{experimentid}/"
 # standard output file names
 LAPTIME_DATASET = f'laptime_rank_timediff_pit-oracle-{dbid}.pickle' 
 STAGE_DATASET = f'stagedata-{dbid}.pickle' 
-EVALUATION_RESULT_DF = f'evaluation_result_d{dataset}.csv'
-LONG_FORECASTING_DFS = f'long_forecasting_dfs_d{dataset}.pickle'
-FORECAST_FIGS_DIR = f'forecast-figs-d{dataset}/'
+EVALUATION_RESULT_DF = f'evaluation_result_d{dataset}_m{testmodel}.csv'
+LONG_FORECASTING_DFS = f'long_forecasting_dfs_d{dataset}_m{testmodel}.pickle'
+FORECAST_FIGS_DIR = f'forecast-figs-d{dataset}_m{testmodel}/'
 
 
 # ### 1. make laptime dataset
@@ -2506,7 +2811,7 @@ else:
         cardinality = [len(global_carids)]
 
     prepared_laptimedata = prepare_laptimedata(prediction_length, freq, test_event = _test_event,
-                           train_ratio=0, context_ratio = 0.)
+                           train_ratio=0, context_ratio = 0.,shift_len = prediction_length)
 
     train_ds, test_ds,_,_ = make_dataset_byevent(prepared_laptimedata, prediction_length,freq,
                                          useeid=useeid, run_ts=_run_ts,
@@ -2516,11 +2821,11 @@ else:
 
     if _savedata:
         print('Save Gluonts Dataset:',dbname)
-        
         with open(dbname, 'wb') as f:
             savedata = [freq, prediction_length, cardinality, train_ds, test_ds]
             pickle.dump(savedata, f, pickle.HIGHEST_PROTOCOL)
 
+        print('Save preprocessed laptime Dataset:',laptimedb)
         with open(laptimedb, 'wb') as f:
             pickle.dump(prepared_laptimedata, f, pickle.HIGHEST_PROTOCOL)
         
@@ -2568,9 +2873,9 @@ else:
 lapmode = _inlap_status
 fmode = _feature_mode
 runts = dataset
-mid = f'{testmodel}-%s-%s-%s-%s'%(runts, year, inlapstr[lapmode], featurestr[fmode])
+mid = f'{testmodel}-%s-%s-%s-%s'%(runts, year, inlapstr[lapmode], cur_featurestr)
 datasetid = outputRoot + _dataset_id
-simulation_outfile=outputRoot + f'shortterm-dfout-oracle-indy500-{dataset}-{inlapstr[_inlap_status]}-{featurestr[_feature_mode]}-2018-oracle-l{loopcnt}-alldata-weighted.pickle'
+simulation_outfile=outputRoot + f'shortterm-dfout-{trainmodel}-indy500-{dataset}-{inlapstr[_inlap_status]}-{cur_featurestr}-{testmodel}-l{loopcnt}-alldata.pickle'
 if _skip_overwrite and os.path.exists(simulation_outfile):
     print('Load Simulation Results:',simulation_outfile)
     with open(simulation_outfile, 'rb') as f:
@@ -2672,11 +2977,11 @@ else:
     #_, pret[mid]= prisk_direct_bysamples(ret[mid][0][1], ret[mid][0][2])
     _, prisk_vals = prisk_direct_bysamples(allsamples, alltss)
 
-    dfout = do_rerank(ranknetdf[year]['oracle_mean'])
+    dfout = do_rerank(ranknetdf[year][f'{testmodel}_mean'])
     accret = stint.get_evalret_shortterm(dfout)[0]
     #fsamples, ftss = runs2samples_ex(ranknet_ret[f'oracle-RANK-{year}-inlap-nopitage'],[])
     #_, prisk_vals = prisk_direct_bysamples(fsamples, ftss)
-    retdata.append([year,'Oracle',configname,'all', accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
+    retdata.append([year,f'{testmodel}',configname,'all', accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
 
     for laptype in ['normal','pit']:
         # select the set
@@ -2702,7 +3007,7 @@ else:
         #_all = load_dfout_all(outfile)[0]
         #ranknetdf, acc, ret, pret = _all[0],_all[1],_all[2],_all[3]
 
-        dfout = do_rerank(ranknetdf[year]['oracle_mean'])
+        dfout = do_rerank(ranknetdf[year][f'{testmodel}_mean'])
 
         allsamples, alltss = get_allsamples(dfx, year=year)
 
@@ -2714,8 +3019,8 @@ else:
         dfout = dfout[dfout['startlap'].isin(startlaps)]
         accret = stint.get_evalret_shortterm(dfout)[0]
 
-        print(year, laptype,'RankNet-Oracle',accret[0], accret[1], prisk_vals[1], prisk_vals[2])
-        retdata.append([year, 'Oracle',configname,laptype, accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
+        print(year, laptype,f'RankNet-{testmodel}',accret[0], accret[1], prisk_vals[1], prisk_vals[2])
+        retdata.append([year, f'{testmodel}',configname,laptype, accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
 
     oracle_eval_result = pd.DataFrame(data=retdata, columns=cols)
     if _savedata:
@@ -2737,13 +3042,13 @@ if _skip_overwrite and os.path.exists(outputRoot + LONG_FORECASTING_DFS):
 else:    
 
     oracle_ret = ret    
-    mid = f'{testmodel}-%s-%s-%s-%s'%(runts, year, inlapstr[lapmode], featurestr[fmode])
-    print('eval mid:', mid, 'oracle_ret keys:', ret.keys())
+    mid = f'{testmodel}-%s-%s-%s-%s'%(runts, year, inlapstr[lapmode], cur_featurestr)
+    print('eval mid:', mid, f'{testmodel}_ret keys:', ret.keys())
 
     ## init predictor
     _predictor =  NaivePredictor(freq= freq, prediction_length = prediction_length)
     
-    oracle_dfout = do_rerank(dfs[year]['oracle_mean'])
+    oracle_dfout = do_rerank(dfs[year][f'{testmodel}_mean'])
     carlist = set(list(oracle_dfout.carno.values))
     carlist = [int(x) for x in carlist]
     print('carlist:', carlist,'len:',len(carlist))
@@ -2786,19 +3091,19 @@ else:
         #by first run output df(_use_mean = true, already reranked)
         df = oracle_ret[mid][0][0]
         dfin_oracle = df[df['carno']==test_cars[0]]
-        target_oracle2, tss_oracle2 = long_predict_bydf('oracle-1run-dfout', dfin_oracle)        
+        target_oracle2, tss_oracle2 = long_predict_bydf(f'{testmodel}-1run-dfout', dfin_oracle)        
 
 
         #by multi-run mean at oracle_dfout
         df = oracle_dfout
         dfin_oracle = df[df['carno']==test_cars[0]]
-        target_oracle3, tss_oracle3 = long_predict_bydf('oracle-multimean', dfin_oracle)        
+        target_oracle3, tss_oracle3 = long_predict_bydf(f'{testmodel}-multimean', dfin_oracle)        
 
 
         #no rerank
-        df = ranknetdf['2018']['oracle_mean']
+        df = ranknetdf['2018'][f'{testmodel}_mean']
         dfin_oracle = df[df['carno']==test_cars[0]]
-        target_oracle4, tss_oracle4 = long_predict_bydf('oracle-norerank-multimean', dfin_oracle)        
+        target_oracle4, tss_oracle4 = long_predict_bydf(f'{testmodel}-norerank-multimean', dfin_oracle)        
 
 
         #by multiple runs
@@ -2841,7 +3146,10 @@ else:
     outputfile = destdir + f'{configname}'
     plotallcars(alldata, outputfile, drawid = 0)
 
+
+# In[ ]:
 print(outputRoot)
 
 print(oracle_eval_result)
+
 
