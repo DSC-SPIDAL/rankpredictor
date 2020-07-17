@@ -737,7 +737,7 @@ def load_model(prediction_length, model_name,trainid,epochs=1000, exproot='../mo
             print(f'loading model...done!, ctx:{predictor.ctx}')
             
         # deepAR-Oracle
-        elif model_name == 'oracle' or model_name == 'pitmodel':
+        elif model_name == 'oracle' or (model_name.find('pitmodel') == 0):
             #
             # debug for weighted model
             #
@@ -749,7 +749,12 @@ def load_model(prediction_length, model_name,trainid,epochs=1000, exproot='../mo
             predictor =  Predictor.deserialize(Path(modeldir))
             print(f'loading model...{model}...done!, ctx:{predictor.ctx}')
 
-
+        elif model_name == 'joint' or model_name == 'deepAR-multi':
+            model=f'deepAR-multi-{_task_id}-all-indy-f1min-t{prediction_length}-e{epochs}-r1_oracle_t{prediction_length}'
+            modeldir = rootdir + model
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  Predictor.deserialize(Path(modeldir))
+            print(f'loading model...{model}...done!, ctx:{predictor.ctx}')
 
         # deepAR-Oracle
         elif model_name == 'oracle-laponly':
@@ -1042,9 +1047,9 @@ def update_onets(rec, startlap, carno):
         caution_laps_instint = int(rec[COL_CAUTION_LAPS_INSTINT, curpos])
         laps_instint = int(rec[COL_LAPS_INSTINT, curpos])
 
-        pred_pit_laps = _pitmodel.predict(caution_laps_instint, laps_instint)
+        pred_pit_laps = _pitmodel.predict(caution_laps_instint, laps_instint) + _pitmodel_bias
 
-        nextpos = curpos + pred_pit_laps - laps_instint
+        nextpos = curpos + pred_pit_laps - laps_instint 
 
         #debug
         #if carno == 12:
@@ -1325,7 +1330,21 @@ def sim_onestep_pred(predictor, prediction_length, freq,
                 #train real features
                 real_features = get_real_features(feature_mode, rec, endpos)
 
-                _test.append({'target': target_val[:endpos].astype(np.float32), 
+                if _joint_train:
+                    # ground truth in forecasts_et, (RANK only)
+                    #target_cols = [run_ts, COL_LAPSTATUS]
+                    target_cols = [2, 0]
+                    #target_val = rec[target_cols].copy().astype(np.float32) 
+                    target_val = forecasts_et[carno][target_cols,:endpos].astype(np.float)
+
+                    _test.append({'target': target_val, 
+                        'start': start, 
+                        'feat_static_cat': static_cat,
+                        'feat_dynamic_real': real_features
+                         }
+                      )   
+                else:
+                    _test.append({'target': target_val[:endpos].astype(np.float32), 
                         'start': start, 
                         'feat_static_cat': static_cat,
                         'feat_dynamic_real': real_features
@@ -1341,7 +1360,7 @@ def sim_onestep_pred(predictor, prediction_length, freq,
         # end of for each ts
 
         # RUN Prediction here
-        test_ds = ListDataset(_test, freq=freq)
+        test_ds = ListDataset(_test, freq=freq,one_dim_target= False if _joint_train else True)
 
         forecast_it, ts_it = make_evaluation_predictions(
             dataset=test_ds,  # test dataset
@@ -1359,16 +1378,41 @@ def sim_onestep_pred(predictor, prediction_length, freq,
             #global carid
             carno = decode_carids[test_rec['feat_static_cat'][0]]
 
-            if _use_mean:
-                forecast_laptime_mean = np.mean(forecasts[idx].samples, axis=0).reshape((prediction_length))
+            if _joint_train:
+                # 
+                # joint train , multi dimensional target
+                # samples – Array of size (num_samples, prediction_length) (1D case) or (num_samples, prediction_length, target_dim)
+                #
+                if _use_mean:
+                    forecast_laptime_mean = np.mean(forecasts[idx].samples[:,:,0], axis=0).reshape((prediction_length))
+                else:
+                    forecast_laptime_mean = np.median(forecasts[idx].samples[:,:,0], axis=0).reshape((prediction_length))
+ 
+                forecasts_furtherest_samples = forecasts[idx].samples[:,-1,0].reshape(-1)
+
             else:
-                forecast_laptime_mean = np.median(forecasts[idx].samples, axis=0).reshape((prediction_length))
-            
+                # 1 dimensional target
+                if _use_mean:
+                    forecast_laptime_mean = np.mean(forecasts[idx].samples, axis=0).reshape((prediction_length))
+                else:
+                    forecast_laptime_mean = np.median(forecasts[idx].samples, axis=0).reshape((prediction_length))
+                forecasts_furtherest_samples = forecasts[idx].samples[:,-1].reshape(-1)
+
             #update the forecasts , ready to use in the next prediction(regresive forecasting)
             forecasts_et[carno][2, len(tss[idx]) - prediction_length:len(tss[idx])] = forecast_laptime_mean.copy()
 
+            #debug
+            if False:
+            #if carno==13:
+                #print('samples shape:', forecasts[idx].samples.shape)
+                print('tss shape:', tss[idx].shape, 'endpos:', endpos)
+                print('forecast mean:', forecast_laptime_mean, len(tss[idx]) - prediction_length)
+                print('target true:', forecasts_et[carno][1, len(tss[idx]) - prediction_length:len(tss[idx])])
+                print('target pred:', forecasts_et[carno][2, len(tss[idx]) - prediction_length:len(tss[idx])])
+
             #save the samples, the farest samples
-            forecasts_samples[carno][:] = forecasts[idx].samples[:,-1].reshape(-1)
+            #forecasts_samples[carno][:] = forecasts[idx].samples[:,-1].reshape(-1)
+            forecasts_samples[carno][:] = forecasts_furtherest_samples
  
 
         #go forward
@@ -1828,6 +1872,12 @@ def run_simulation_shortterm(predictor, prediction_length, freq,
             print(f'Error, {_exp_id} evaluation not support yet')
             break
 
+        #debug joint
+        #if True:
+        #    xmat = forecasts_et[13][:, pitlap:pitlap+prediction_length]
+        #    print('debug forecasts_et at ', pitlap)
+        #    print(xmat)
+
         # evaluate for this stint
         #ret = get_acc_onestint_pred(forecasts_et, pitlap, nextpit, nextpit_pred)
         ret = get_acc_onestep_shortterm(forecasts_et, pitlap, pitlap+prediction_length)
@@ -2152,6 +2202,10 @@ _include_endpit = False
 #_use_mean = False   # mean or median to get prediction from samples
 _use_mean = True   # mean or median to get prediction from samples
 
+# joint train the target of (rank, lapstatus)
+_joint_train = False
+_pitmodel_bias = 0
+
 # In[16]:
 global_start_offset = {}
 global_carids = {}
@@ -2167,7 +2221,7 @@ dbid = f'Indy500_{years[0]}_{years[-1]}_v9_p{_inlap_status}'
 
 _trim = 0
 
-def init(pitmodel = ''):
+def init(pitmodel = '', pitmodel_bias = 0):
     global global_carids, laptime_data, global_start_offset, decode_carids,_pitmodel
     global dbid, _inlap_status
 
@@ -2204,6 +2258,7 @@ def init(pitmodel = ''):
     elif pitmodel=='oracle':
         _pitmodel = pitmodel
     else:
+        _pitmodel_bias = pitmodel_bias
         _pitmodel = PitModelMLP(modelfile = pitmodel)
         print(f'init pitmodel as PitModelMLP(pitmodel)')
 
