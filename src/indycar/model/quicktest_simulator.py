@@ -87,6 +87,8 @@ COL_CAUTION_LAPS_INSTINT=5
 COL_LAPS_INSTINT= 6
 COL_ELAPSEDTIME= 7
 COL_LAP2NEXTPIT= 8
+COL_TARGET_PREDICTED = 8
+
 
 # added new features
 COL_LEADER_PITCNT = 9
@@ -368,7 +370,10 @@ def update_laptimedata(prediction_length, freq,
                        test_event = 'Indy500-2018',
                        train_ratio=0.8,
                        context_ratio = 0.,
-                       shift_len = -1, verbose = False):
+                       shift_len = -1, 
+                       #target_pred = None,
+                       rank_col = COL_RANK,
+                       verbose = False):
     """
     update the features in laptime data
     
@@ -420,8 +425,22 @@ def update_laptimedata(prediction_length, freq,
         verbose = False
             
 
+        #
+        # be careful on leader_cnt for the future rank leaking
+        #
         dest_col = -1 if input_feature_cnt < COL_LASTFEATURE + 1 else COL_LEADER_PITCNT
-        data2_intermediate = add_leader_cnt(_data[2], shift_len = shift_len, dest_col=dest_col, verbose = verbose)
+        #if not target_pred:
+        #    # update leader_cnt by predicted target
+        #    data2_intermediate = add_leader_cnt(_data[2], shift_len = shift_len, 
+        #            rank_col = COL_TARGET_PREDICTED,
+        #            dest_col=dest_col, verbose = verbose)
+
+        #else:
+        #    # update leader_cnt by true target
+        #    data2_intermediate = add_leader_cnt(_data[2], shift_len = shift_len, dest_col=dest_col, verbose = verbose)
+        data2_intermediate = add_leader_cnt(_data[2], shift_len = shift_len, 
+                    rank_col = rank_col,
+                    dest_col=dest_col, verbose = verbose)
         
         # add totalPit
         dest_col = -1 if input_feature_cnt < COL_LASTFEATURE + 1 else COL_TOTAL_PITCNT
@@ -1184,6 +1203,9 @@ def sim_onestep_pred(predictor, prediction_length, freq,
             {}, carno -> samplecnt of the target
 
     """    
+
+    global laptime_data
+
     run_ts= _run_ts 
     test_event = _test_event    
     feature_mode = _feature_mode
@@ -1196,7 +1218,9 @@ def sim_onestep_pred(predictor, prediction_length, freq,
     forecasts_et = {}
     forecasts_samples = {}
 
-    _laptime_data = laptime_data.copy()
+    #_laptime_data = laptime_data.copy()
+    _laptime_data = laptime_data
+    carno2rowid = {}
 
     endpos = startlap + prediction_length + 1
     #while(endpos <= endlap + prediction_length + 1):
@@ -1244,7 +1268,9 @@ def sim_onestep_pred(predictor, prediction_length, freq,
                 
                 static_cat = [carid]    
                  
-
+                #save to carno2rowid map
+                if carno not in carno2rowid:
+                    carno2rowid[carno] = rowid
 
                 #first, get target a copy    
                 # target can be COL_XXSTATUS
@@ -1265,6 +1291,9 @@ def sim_onestep_pred(predictor, prediction_length, freq,
                     forecasts_et[carno][2,:] = rec[run_ts,:].copy().astype(np.float32)
                     # for p-risk
                     forecasts_samples[carno] = np.zeros((sample_cnt))
+                    # prepare TARGET_PREDICTED in laptime
+                    _data[2][rowid][COL_TARGET_PREDICTED, :] = np.nan
+                    _data[2][rowid][COL_TARGET_PREDICTED, :totallen] = rec[run_ts,:].copy().astype(np.float32)
 
                 # forecasts_et will be updated by forecasts
                 target_val = forecasts_et[carno][2,:]
@@ -1401,6 +1430,10 @@ def sim_onestep_pred(predictor, prediction_length, freq,
             #update the forecasts , ready to use in the next prediction(regresive forecasting)
             forecasts_et[carno][2, len(tss[idx]) - prediction_length:len(tss[idx])] = forecast_laptime_mean.copy()
 
+            # update laptime_data
+            rowid = carno2rowid[carno]
+            _data[2][rowid][COL_TARGET_PREDICTED,len(tss[idx]) - prediction_length:len(tss[idx])] = forecasts_et[carno][2, len(tss[idx]) - prediction_length:len(tss[idx])]
+
             #debug
             if False:
             #if carno==13:
@@ -1414,6 +1447,15 @@ def sim_onestep_pred(predictor, prediction_length, freq,
             #forecasts_samples[carno][:] = forecasts[idx].samples[:,-1].reshape(-1)
             forecasts_samples[carno][:] = forecasts_furtherest_samples
  
+        #update laptimedata by new predictions
+        #save predictions into laptime data
+
+        # update featues inlaptime data
+        laptime_data = update_laptimedata(prediction_length, freq, 
+                        test_event = _test_event,
+                        train_ratio=0, context_ratio = 0.,shift_len = prediction_length,
+                        rank_col = COL_TARGET_PREDICTED
+                        )
 
         #go forward
         endpos += prediction_length
