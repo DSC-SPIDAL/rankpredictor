@@ -14,5 +14,5 @@ extension="${filename##*.}"
 filename="${filename%.*}"
 
 mkdir -p logs
-python RankNet-QuickTest.py "$@" | tee logs/${filename}.log
+python RankNet-QuickTest-Slim.py "$@" | tee logs/${filename}.log
 

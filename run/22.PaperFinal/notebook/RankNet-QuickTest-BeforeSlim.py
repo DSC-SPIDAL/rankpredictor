@@ -72,10 +72,6 @@ from indycar.model.deeparw import DeepARWeightEstimator
 
 #import indycar.model.stint_simulator_shortterm_pitmodel as stint
 import indycar.model.quicktest_simulator as stint
-#from indycar.model.global_variables import _hi
-import indycar.model.global_variables as gvar
-
-from gluonts.model.transformer import TransformerEstimator
 
 
 logger = logging.getLogger(__name__)
@@ -304,7 +300,7 @@ def get_laptime_dataset(stagedata, inlap_status = 0):
         print(f'start event: {event}')
         
         laptime_rec = []
-        eventid = gvar.events_id[event]
+        eventid = events_id[event]
         
         alldata, rankdata, acldata, flagdata = stagedata[event]
         carlist = set(acldata['car_number'])
@@ -682,8 +678,7 @@ def add_shift_feature(selmat, rank_col=COL_RANK, shift_col=COL_LAPSTATUS, shift_
     return newmat
 
 
-def prepare_laptimedata(laptime_data, 
-                        prediction_length, freq, 
+def prepare_laptimedata(prediction_length, freq, 
                        test_event = 'Indy500-2018',
                        train_ratio=0.8,
                        context_ratio = 0.,
@@ -703,7 +698,7 @@ def prepare_laptimedata(laptime_data,
     """
     _laptime_data = laptime_data.copy()
     
-    test_eventid = gvar.events_id[test_event]
+    test_eventid = events_id[test_event]
     run_ts = COL_RANK
     
     # check shift len
@@ -716,12 +711,10 @@ def prepare_laptimedata(laptime_data,
     for _data in _laptime_data:
         #skip eid > test_eventid
         if _data[0] > test_eventid:
-            #print('skip this event:', events[_data[0]])
-            print('skip this event:', _data[0])
+            print('skip this event:', events[_data[0]])
             break
         
-        #if events[_data[0]] == test_event:
-        if _data[0] == test_eventid:
+        if events[_data[0]] == test_event:
             test_mode = True
         else:
             test_mode = False        
@@ -731,7 +724,7 @@ def prepare_laptimedata(laptime_data,
         train_len = int(np.max(ts_len) * train_ratio)
         if train_len == 0:
             #use global train_len
-            train_len = gvar._train_len if not test_mode else gvar._test_train_len
+            train_len = _train_len if not test_mode else _test_train_len
         
         if context_ratio != 0.:
             # add this part to train set
@@ -741,7 +734,7 @@ def prepare_laptimedata(laptime_data,
         if context_len < 10:
             context_len = 10
         
-        print(f'before ====event:{gvar.events[_data[0]]}, prediction_len={prediction_length},train_len={train_len}, max_len={np.max(ts_len)}, min_len={np.min(ts_len)},context_len={context_len}')
+        print(f'before ====event:{events[_data[0]]}, prediction_len={prediction_length},train_len={train_len}, max_len={np.max(ts_len)}, min_len={np.min(ts_len)},context_len={context_len}')
 
         #rerank due to short ts removed
         #if run_ts == COL_RANK and dorerank == True:
@@ -914,8 +907,7 @@ def get_real_features(feature_mode, rec, endpos):
         
     return features
 
-def make_dataset_byevent(_laptime_data, 
-                       prediction_length, freq, 
+def make_dataset_byevent(_laptime_data, prediction_length, freq, 
                        useeid = False,
                        run_ts=COL_LAPTIME, 
                        test_event = 'Indy500-2018',
@@ -926,7 +918,6 @@ def make_dataset_byevent(_laptime_data,
                        log_transform = False,
                        context_ratio = 0.,
                        dorerank = True,
-                       joint_train = 0,
                        test_cars = []  
                 ):
     """
@@ -938,7 +929,7 @@ def make_dataset_byevent(_laptime_data,
     
     """    
     #global setting
-    feature_mode = gvar._feature_mode
+    feature_mode = _feature_mode
     
     start = pd.Timestamp("01-01-2019", freq=freq)  # can be different for each time series
 
@@ -948,15 +939,14 @@ def make_dataset_byevent(_laptime_data,
     
     totalTSCnt = 0
     totalTSLen = 0
-    test_eventid = gvar.events_id[test_event]
+    test_eventid = events_id[test_event]
     
     #_data: eventid, carids, datalist[carnumbers, features, lapnumber]->[laptime, rank, track, lap]]
     for _data in _laptime_data:
         _train = []
         _test = []
         
-        #if events[_data[0]] == test_event:
-        if _data[0] == test_eventid:
+        if events[_data[0]] == test_event:
             test_mode = True
         else:
             test_mode = False
@@ -966,7 +956,7 @@ def make_dataset_byevent(_laptime_data,
         train_len = int(np.max(ts_len) * train_ratio)
         if train_len == 0:
             #use global train_len
-            train_len = gvar._train_len if not test_mode else gvar._test_train_len
+            train_len = _train_len if not test_mode else _test_train_len
         
         if context_ratio != 0.:
             # add this part to train set
@@ -976,7 +966,7 @@ def make_dataset_byevent(_laptime_data,
         if context_len < 10:
             context_len = 10
         
-        print(f'after ====event:{gvar.events[_data[0]]}, prediction_len={prediction_length},train_len={train_len}, max_len={np.max(ts_len)}, min_len={np.min(ts_len)},context_len={context_len}')
+        print(f'after ====event:{events[_data[0]]}, prediction_len={prediction_length},train_len={train_len}, max_len={np.max(ts_len)}, min_len={np.min(ts_len)},context_len={context_len}')
 
         # process for each ts
         for rowid in range(_data[2].shape[0]):
@@ -1000,7 +990,7 @@ def make_dataset_byevent(_laptime_data,
             
             if use_global_dict:
                 carno = _data[1][rowid]
-                carid = gvar.global_carids[_data[1][rowid]]
+                carid = global_carids[_data[1][rowid]]
             else:
                 #simulation dataset, todo, fix the carids as decoder
                 carno = rowid
@@ -1017,7 +1007,7 @@ def make_dataset_byevent(_laptime_data,
                 
             #first, get target a copy    
             # target can be COL_XXSTATUS
-            if joint_train:
+            if _joint_train:
                 target_cols = [run_ts, COL_LAPSTATUS]
                 target_val = rec[target_cols].copy().astype(np.float32)                
             else:
@@ -1049,7 +1039,7 @@ def make_dataset_byevent(_laptime_data,
                     # all go to train set
                     #add [0, context_len] to train set 
                     # all go to train set
-                    if joint_train:
+                    if _joint_train:
                         _train.append({'target': target_val[:,:context_len],  
                                 'start': start, 
                                 'feat_static_cat': static_cat,
@@ -1075,7 +1065,7 @@ def make_dataset_byevent(_laptime_data,
 
                     real_features = get_real_features(feature_mode, rec, endpos)
                     
-                    if joint_train:                    
+                    if _joint_train:                    
                         _test.append({'target': target_val[:,:endpos], 
                             'start': start, 
                             'feat_static_cat': static_cat,
@@ -1102,8 +1092,8 @@ def make_dataset_byevent(_laptime_data,
 
     print(f'train len:{len(train_set)}, test len:{len(test_set)}, totsl TsCnt:{totalTSCnt}, total ts len:{totalTSLen}')
     
-    train_ds = ListDataset(train_set, freq=freq,one_dim_target= False if joint_train else True)
-    test_ds = ListDataset(test_set, freq=freq,one_dim_target= False if joint_train else True)    
+    train_ds = ListDataset(train_set, freq=freq,one_dim_target= False if _joint_train else True)
+    test_ds = ListDataset(test_set, freq=freq,one_dim_target= False if _joint_train else True)    
     
     return train_ds, test_ds, train_set, test_set
 
@@ -1118,11 +1108,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
         ctx = "cpu"
     else:
         ctx = "gpu(%s)"%gpuid
-
-    #global vars
-    prediction_length = gvar.prediction_length
-    context_length = gvar.context_length
-    freq = gvar.freq
 
     if model == 'deepAR':
         if use_feat_static:
@@ -1228,78 +1213,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                                 num_batches_per_epoch=100
                                )
                 )
-    elif model == 'Transformer':
-
-        if use_feat_static:
-            estimator = TransformerEstimator(
-                prediction_length=prediction_length,
-                context_length= context_length,
-                use_feat_static_cat=use_feat_static,
-                cardinality=cardinality,
-                use_feat_dynamic_real=False,
-                distr_output = distr_output,
-                freq=freq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
-                )
-        else:
-            estimator = TransformerEstimator(
-                prediction_length=prediction_length,
-                context_length= context_length,
-                use_feat_static_cat=use_feat_static,
-                #cardinality=cardinality,
-                use_feat_dynamic_real=False,
-                distr_output = distr_output,
-                freq=freq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
-                )
-    elif model == 'Transformer-Oracle':
-
-        if use_feat_static:
-            estimator = TransformerEstimator(
-                prediction_length=prediction_length,
-                context_length= context_length,
-                use_feat_static_cat=use_feat_static,
-                cardinality=cardinality,
-                use_feat_dynamic_real=True,
-                distr_output = distr_output,
-                freq=freq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
-                )
-        else:
-            estimator = TransformerEstimator(
-                prediction_length=prediction_length,
-                context_length= context_length,
-                use_feat_static_cat=use_feat_static,
-                #cardinality=cardinality,
-                use_feat_dynamic_real=True,
-                distr_output = distr_output,
-                freq=freq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
-                )
             
     elif model == 'deepAR-multi':
         estimator = DeepAREstimator(
@@ -1387,7 +1300,7 @@ def init_simulation(datasetid, testevent, taskid, runts, expid, predictionlen,
                inlapmode=0,
                train_len = 40,test_train_len=40,
                joint_train = False,
-               pitmodel_bias= 0, prepared_laptimedata = None):
+               pitmodel_bias = 0):
     """
     input:
         prepared_laptimedata   ; global
@@ -1433,8 +1346,7 @@ def simulation(datasetid, testevent, taskid, runts, expid, predictionlen,
                datamode, loopcnt, featuremode = stint.FEATURE_STATUS,
               pitmodel = 0, model = 'oracle', inlapmode=0, train_len = 40,test_train_len=40,
               forecastmode = 'shortterm', joint_train = False, 
-               pitmodel_bias= 0, prepared_laptimedata = None,
-               epochs = 1000):
+               pitmodel_bias= 0):
     """
     input:
         prepared_laptimedata   ; global
@@ -1576,14 +1488,16 @@ def long_predict(predictor, sampleCnt = 100):
     
 
 
-def get_alldf(dfx, year=2018, forecast_mode = 'shortterm'):
+def get_alldf(dfx, year=2018):
+    
+
     #dfx = ret[f'{model}-RANK-{year}-inlap-nopitage']
     #dfx = ret[f'{model}-TIMEDIFF-{year}-noinlap-nopitage']
     
     samples = dfx.keys()
     retdfs = []
     for id in samples:
-        if forecast_mode == 'shortterm':
+        if _forecast_mode == 'shortterm':
             df = dfx[id][0]
         else:
             df = dfx[id]
@@ -1596,14 +1510,14 @@ def get_alldf(dfx, year=2018, forecast_mode = 'shortterm'):
         
     return dfout
     
-def get_alldf_mode(dfx, year=2018,mode=0, forecast_mode = 'shortterm'):
+def get_alldf_mode(dfx, year=2018,mode=0):
     """
     mode: 
         0; mode
         1; mean
         2; median
     """
-    dfall = get_alldf(dfx, year=year, forecast_mode = forecast_mode)
+    dfall = get_alldf(dfx, year=year)
     
     cars = set(dfall.carno.values)
     startlaps = {}
@@ -1644,7 +1558,7 @@ def get_alldf_mode(dfx, year=2018,mode=0, forecast_mode = 'shortterm'):
             retdf.append(firstrec)
         
     #dfout = pd.concat(retdf)
-    if forecast_mode == 'shortterm':
+    if _forecast_mode == 'shortterm':
         dfout = pd.DataFrame(retdf, columns =['carno', 'startlap', 'startrank',    
                                          'endrank', 'diff', 'sign',
                                          'pred_endrank', 'pred_diff', 'pred_sign',
@@ -1929,7 +1843,7 @@ def do_rerank(dfout, short=True):
 # In[ ]:
 
 
-def long_predict_bymloutput_multirun(output, dfin, test_ds, predictor, sampleCnt=100):
+def long_predict_bymloutput_multirun(output, dfin, sampleCnt=100):
     """
     input:
         test_ds
@@ -1941,8 +1855,8 @@ def long_predict_bymloutput_multirun(output, dfin, test_ds, predictor, sampleCnt
         return td.days*24*60 + td.seconds//60
     
     forecast_it, ts_it = make_evaluation_predictions(
-        dataset = test_ds,  # test dataset
-        predictor = predictor,  # predictor
+        dataset=test_ds,  # test dataset
+        predictor=_predictor,  # predictor
         num_samples=sampleCnt,  # number of sample paths we want for evaluation
     )
 
@@ -2003,7 +1917,7 @@ def long_predict_bymloutput_multirun(output, dfin, test_ds, predictor, sampleCnt
     
     return target,tss[0]
 
-def long_predict_bymloutput(output, dfin, test_ds, predictor):
+def long_predict_bymloutput(output, dfin):
     """
     input:
         test_ds
@@ -2015,8 +1929,8 @@ def long_predict_bymloutput(output, dfin, test_ds, predictor):
         return td.days*24*60 + td.seconds//60
     
     forecast_it, ts_it = make_evaluation_predictions(
-        dataset = test_ds,  # test dataset
-        predictor = predictor,  # predictor
+        dataset=test_ds,  # test dataset
+        predictor=_predictor,  # predictor
         num_samples=100,  # number of sample paths we want for evaluation
     )
 
@@ -2077,7 +1991,7 @@ def long_predict_bymloutput(output, dfin, test_ds, predictor):
     
     return target,tss[0]
 
-def long_predict_bysamples(output, samples, tss, test_ds, predictor):
+def long_predict_bysamples(output, samples, tss):
     """
     use the farest samples only
     
@@ -2092,8 +2006,8 @@ def long_predict_bysamples(output, samples, tss, test_ds, predictor):
         return td.days*24*60 + td.seconds//60
     
     forecast_it, ts_it = make_evaluation_predictions(
-        dataset = test_ds,  # test dataset
-        predictor= predictor,  # predictor
+        dataset=test_ds,  # test dataset
+        predictor=_predictor,  # predictor
         num_samples=100,  # number of sample paths we want for evaluation
     )
 
@@ -2130,7 +2044,7 @@ def long_predict_bysamples(output, samples, tss, test_ds, predictor):
 #
 # different idx format to bymloutput
 #
-def long_predict_bydf(output, dfin, test_ds, predictor):
+def long_predict_bydf(output, dfin):
     """
     input:
         test_ds
@@ -2142,8 +2056,8 @@ def long_predict_bydf(output, dfin, test_ds, predictor):
         return td.days*24*60 + td.seconds//60
     
     forecast_it, ts_it = make_evaluation_predictions(
-        dataset = test_ds,  # test dataset
-        predictor = predictor,  # predictor
+        dataset=test_ds,  # test dataset
+        predictor= _predictor,  # predictor
         num_samples=100,  # number of sample paths we want for evaluation
     )
 
@@ -2204,7 +2118,7 @@ def long_predict_bydf(output, dfin, test_ds, predictor):
     
     return target,tss[0]
 
-def get_ranknet_multirun(retdata, testcar, test_ds, predictor, sampleCnt=100):
+def get_ranknet_multirun(retdata, testcar, sampleCnt=100):
     dfs = []
     #for id in range(samplecnt):
     for id in retdata.keys():
@@ -2222,8 +2136,7 @@ def get_ranknet_multirun(retdata, testcar, test_ds, predictor, sampleCnt=100):
     dfin_ranknet['startrank'] = dfin_ranknet['startrank'] - 1
     dfin_ranknet['endrank'] = dfin_ranknet['endrank'] - 1
                 
-    target_ranknet, tss_ranknet = long_predict_bymloutput_multirun('ranknet-rank', dfin_ranknet, 
-            test_ds, predictor, sampleCnt=sampleCnt)                
+    target_ranknet, tss_ranknet = long_predict_bymloutput_multirun('ranknet-rank', dfin_ranknet, sampleCnt=sampleCnt)                
                 
     return target_ranknet, tss_ranknet
 
@@ -2932,6 +2845,787 @@ def get_config():
     return config
 
 
-def test_global():
-    gvar._hi += 200
+### run
+program = os.path.basename(sys.argv[0])
+logger = logging.getLogger(program)
+
+# logging configure
+import logging.config
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s')
+logging.root.setLevel(level=logging.INFO)
+logger.info("running %s" % ' '.join(sys.argv))
+
+# cmd argument parser
+usage = 'RankNet-QuickTest.py <configfile> [options]'
+parser = OptionParser(usage)
+parser.add_option("--forecast_mode", dest="forecast_mode", default="")
+parser.add_option("--trainmodel", default='', dest="trainmodel")
+parser.add_option("--testmodel", default='', dest="testmodel")
+parser.add_option("--joint_train", action="store_true", default=False, dest="joint_train")
+parser.add_option("--loopcnt", default=-1,type='int',  dest="loopcnt")
+parser.add_option("--gpuid", default=-1,type='int',  dest="gpuid")
+parser.add_option("--pitmodel_bias", default=-1, type='int', dest="pitmodel_bias")
+parser.add_option("--year", default='', dest="year")
+parser.add_option("--test_event", default='', dest="test_event")
+
+opt, args = parser.parse_args()
+print(len(args), opt.joint_train)
+
+#check validation
+if len(args) != 1:
+    logger.error(globals()['__doc__'] % locals())
+    sys.exit(-1)
+
+configfile = args[0]
+
+base=os.path.basename(configfile)
+configname = os.path.splitext(base)[0]
+
+WorkRootDir = 'QuickTestOutput'
+#configname = 'weighted-noinlap-nopitage-nocate-c60-drank'
+#configfile = f'{configname}.ini'
+
+if not os.path.exists(configfile):
+    print('config file not exists error:', configfile)
+    sys.exit(-1)
+
+if configfile != '':
+    config = configparser.RawConfigParser()
+    #config.read(WorkRootDir + '/' + configfile)
+    config.read(configfile)
+
+    #set them back
+    section = "RankNet-QuickTest"
+    
+    _savedata = config.getboolean(section, "_savedata")
+    _skip_overwrite = config.getboolean(section, "_skip_overwrite")
+    _inlap_status = config.getint(section, "_inlap_status") #0
+    _feature_mode = config.getint(section, "_feature_mode") #FEATURE_STATUS
+    _featureCnt = config.getint(section, "_featureCnt") #9
+    freq = config.get(section, "freq") #"1min"
+    _train_len = config.getint(section, "_train_len") #40
+    prediction_length = config.getint(section, "prediction_length") #2
+    context_ratio = config.getfloat(section, "context_ratio") #0.
+    context_length =  config.getint(section, "context_length") #40
+    
+    dataset= config.get(section, "dataset") #'rank'
+    epochs = config.getint(section, "epochs") #1000
+    gpuid = config.getint(section, "gpuid") #5
+    _use_weighted_model = config.getboolean(section, "_use_weighted_model")
+    trainmodel = config.get(section, "trainmodel") #'deepARW-Oracle' if _use_weighted_model else 'deepAR-Oracle'
+    
+    _use_cate_feature = config.getboolean(section, "_use_cate_feature")
+    
+    distroutput = config.get(section, "distroutput") #'student'
+    batch_size = config.getint(section, "batch_size") #32
+    loopcnt = config.getint(section, "loopcnt") #2
+    _test_event = config.get(section, "_test_event") #'Indy500-2018'
+    testmodel = config.get(section, "testmodel") #'oracle'
+    pitmodel = config.get(section, "pitmodel") #'oracle'
+    year = config.get(section, "year") #'2018'
+    
+    contextlen = context_length
+    use_feat_static = _use_cate_feature 
+
+    #config1 = get_config()
+    
+else:
+    print('Warning, please use config file')
+    sys.exit(0)
+    
+    #
+    # global settings
+    #
+    #_savedata = False
+    _savedata = True
+    _skip_overwrite = True
+
+    #inlap status = 
+    # 0 , no inlap
+    # 1 , set previous lap
+    # 2 , set the next lap
+    _inlap_status = 0
+
+    #
+    # featuremode in [FEATURE_STATUS, FEATURE_PITAGE]:
+    #
+    _feature_mode = FEATURE_LEADERPITCNT
+    _featureCnt = 9
+
+    #
+    # training parameters
+    #
+    freq = "1min"
+    _train_len = 60
+    prediction_length = 2
+
+    context_ratio = 0.
+    context_length =  60
+    contextlen = context_length
+
+    dataset='rank'
+    epochs = 1000
+    #epochs = 10
+    gpuid = 5
+
+    #'deepAR-Oracle','deepARW-Oracle'
+    _use_weighted_model = True
+    trainmodel = 'deepARW-Oracle' if _use_weighted_model else 'deepAR-Oracle'
+
+    _use_cate_feature = False
+    use_feat_static = _use_cate_feature 
+
+    distroutput = 'student'
+    batch_size = 32
+
+
+    #
+    # test parameters
+    #
+    loopcnt = 2
+    _test_event = 'Indy500-2018'
+    testmodel = 'oracle'
+    pitmodel = 'oracle'
+    year = '2018'
+    
+    #config2 = get_config()
+
+
+# In[ ]:
+
+
+# new added parameters
+_test_train_len = 40
+_joint_train = False
+_pitmodel_bias = 0
+_forecast_mode = 'shortterm'
+
+#_test_event = 'Indy500-2019'
+#year = '2019'
+
+#shortterm, stint
+#_forecast_mode = 'stint'
+#_forecast_mode = 'shortterm'
+
+# bias of the pitmodel
+#_pitmodel_bias = 4
+
+#train model: [deepARW-Oracle, deepAR]
+
+# test the standard deepAR model training and testing
+
+# DeepAR
+#trainmodel = 'deepAR'
+#testmodel = 'standard'
+
+# Joint 
+#trainmodel = 'deepAR-multi'
+#testmodel = 'joint'
+#_joint_train = True
+#loopcnt = 2
+
+
+#load arguments overwites
+if opt.forecast_mode != '':
+    _forecast_mode = opt.forecast_mode
+if opt.trainmodel != '':
+    trainmodel = opt.trainmodel
+if opt.testmodel != '':
+    testmodel = opt.testmodel
+if opt.joint_train != False:
+    _joint_train = True
+if opt.gpuid > 0:
+    gpuid = opt.gpuid
+if opt.loopcnt > 0:
+    loopcnt = opt.loopcnt
+if opt.pitmodel_bias >= 0:
+    _pitmodel_bias = opt.pitmodel_bias
+if opt.year != '':
+    year = opt.year
+if opt.test_event != '':
+    _test_event = opt.test_event
+
+
+## deduced paramters
+if testmodel == 'pitmodel':
+    testmodel = 'pitmodel%s'%(_pitmodel_bias if _pitmodel_bias!=0 else '')
+
+#loopcnt = 2    
+    
+#featurestr = {FEATURE_STATUS:'nopitage',FEATURE_PITAGE:'pitage',FEATURE_LEADERPITCNT:'leaderpitcnt'}
+#cur_featurestr = featurestr[_feature_mode]
+print('current configfile:', configfile)
+cur_featurestr = decode_feature_mode(_feature_mode)
+print('feature_mode:', _feature_mode, cur_featurestr)
+print('trainmodel:', trainmodel, 'jointtrain:', _joint_train)
+print('testmodel:', testmodel)
+print('pitmodel:', pitmodel, 'pitmodel bias:', _pitmodel_bias)
+print('year:', year, 'test_event:', _test_event)
+print('loopcnt:', loopcnt)
+print('gpuid:', gpuid)
+sys.stdout.flush()
+
+#
+# string map
+#
+inlapstr = {0:'noinlap',1:'inlap',2:'outlap'}
+weightstr = {True:'weighted',False:'noweighted'}
+catestr = {True:'cate',False:'nocate'}
+
+#
+# input data parameters
+#
+years = ['2013','2014','2015','2016','2017','2018','2019']
+events = [f'Indy500-{x}' for x in years]
+events_id={key:idx for idx, key in enumerate(events)}
+dbid = f'Indy500_{years[0]}_{years[-1]}_v{_featureCnt}_p{_inlap_status}'
+_dataset_id = '%s-%s'%(inlapstr[_inlap_status], cur_featurestr)
+
+
+#
+# internal parameters
+#
+distr_outputs ={'student':StudentTOutput(),
+                'negbin':NegativeBinomialOutput()
+                }
+distr_output = distr_outputs[distroutput]
+
+#
+#
+#
+experimentid = f'{weightstr[_use_weighted_model]}-{inlapstr[_inlap_status]}-{cur_featurestr}-{catestr[_use_cate_feature]}-c{context_length}'
+
+#
+#
+#
+outputRoot = f"{WorkRootDir}/{experimentid}/"
+
+
+# standard output file names
+LAPTIME_DATASET = f'{outputRoot}/laptime_rank_timediff_pit-oracle-{dbid}.pickle' 
+STAGE_DATASET = f'{outputRoot}/stagedata-{dbid}.pickle' 
+# year related
+SIMULATION_OUTFILE = f'{outputRoot}/{_test_event}/{_forecast_mode}-dfout-{trainmodel}-indy500-{dataset}-{inlapstr[_inlap_status]}-{cur_featurestr}-{testmodel}-l{loopcnt}-alldata.pickle'
+EVALUATION_RESULT_DF = f'{outputRoot}/{_test_event}/{_forecast_mode}-evaluation_result_d{dataset}_m{testmodel}.csv'
+LONG_FORECASTING_DFS = f'{outputRoot}/{_test_event}/{_forecast_mode}-long_forecasting_dfs_d{dataset}_m{testmodel}.pickle'
+FORECAST_FIGS_DIR = f'{outputRoot}/{_test_event}/{_forecast_mode}-forecast-figs-d{dataset}_m{testmodel}/'
+
+
+# ### 1. make laptime dataset
+
+# In[ ]:
+
+
+stagedata = {}
+global_carids = {}
+os.makedirs(outputRoot, exist_ok=True)
+os.makedirs(f'{outputRoot}/{_test_event}', exist_ok=True)
+
+#check the dest files first
+if _skip_overwrite and os.path.exists(LAPTIME_DATASET) and os.path.exists(STAGE_DATASET):
+        #
+        # load data
+        #
+        print('Load laptime and stage dataset:',LAPTIME_DATASET, STAGE_DATASET)
+        with open(LAPTIME_DATASET, 'rb') as f:
+            global_carids, laptime_data = pickle.load(f, encoding='latin1') 
+        with open(STAGE_DATASET, 'rb') as f:
+            stagedata = pickle.load(f, encoding='latin1') 
+    
+else:    
+    cur_carid = 0
+    for event in events:
+        #dataid = f'{event}-{year}'
+        #alldata, rankdata, acldata, flagdata
+        stagedata[event] = load_data(event)
+
+        alldata, rankdata, acldata, flagdata = stagedata[event]
+        carlist = set(acldata['car_number'])
+        laplist = set(acldata['completed_laps'])
+        print('%s: carno=%d, lapnum=%d'%(event, len(carlist), len(laplist)))
+
+        #build the carid map
+        for car in carlist:
+            if car not in global_carids:
+                global_carids[car] = cur_carid
+                cur_carid += 1
+
+    laptime_data = get_laptime_dataset(stagedata,inlap_status = _inlap_status)
+
+    if _savedata:
+        import pickle
+        #stintdf.to_csv('laptime-%s.csv'%year)
+        #savefile = outputRoot + f'laptime_rank_timediff_pit-oracle-{dbid}.pickle' 
+        savefile = LAPTIME_DATASET
+        print(savefile)
+        with open(savefile, 'wb') as f:
+            #pack [global_carids, laptime_data]
+            savedata = [global_carids, laptime_data]
+            # Pickle the 'data' dictionary using the highest protocol available.
+            pickle.dump(savedata, f, pickle.HIGHEST_PROTOCOL)
+
+        #savefile = outputRoot + f'stagedata-{dbid}.pickle' 
+        savefile = STAGE_DATASET
+        print(savefile)
+        with open(savefile, 'wb') as f:
+            #pack [global_carids, laptime_data]
+            savedata = stagedata
+            # Pickle the 'data' dictionary using the highest protocol available.
+            pickle.dump(savedata, f, pickle.HIGHEST_PROTOCOL)    
+        
+
+
+# ### 2. make gluonts db
+
+# In[ ]:
+
+
+outdir = outputRoot + _dataset_id
+os.makedirs(outdir, exist_ok=True)
+
+if dataset == 'laptime':
+    subdir = 'laptime-indy500'
+    os.makedirs(f'{outdir}/{subdir}', exist_ok=True)
+    _run_ts = COL_LAPTIME
+elif dataset == 'timediff':
+    subdir = 'timediff-indy500'
+    os.makedirs(f'{outdir}/{subdir}', exist_ok=True)
+    _run_ts = COL_TIMEDIFF
+elif dataset == 'rank':
+    subdir = 'rank-indy500'
+    os.makedirs(f'{outdir}/{subdir}', exist_ok=True)
+    _run_ts = COL_RANK
+else:
+    print('error, dataset not support: ', dataset)
+    
+_task_dir = f'{outdir}/{subdir}/'
+
+#
+#dbname, train_ds, test_ds = makedbs()   
+#
+useeid = False
+interpolate = False
+#ipstr = '-ip' if interpolate else '-noip'
+ipstr = '%s-%s'%('ip' if interpolate else 'noip', 'eid' if useeid else 'noeid')
+jointstr = '-joint' if _joint_train else ''
+
+dbname = _task_dir + f'gluontsdb-{dataset}-oracle-{ipstr}-all-all-f{freq}-t{prediction_length}-r{_test_event}-indy-{year}{jointstr}.pickle'
+laptimedb = _task_dir + f'gluontsdb-{dataset}-oracle-{ipstr}-all-all-f{freq}-t{prediction_length}-r{_test_event}-indy-{year}-newlaptimedata.pickle'
+
+#check the dest files first
+if _skip_overwrite and os.path.exists(dbname) and os.path.exists(laptimedb):
+        print('Load Gluonts Dataset:',dbname)
+        with open(dbname, 'rb') as f:
+            freq, prediction_length, cardinality, train_ds, test_ds = pickle.load(f, encoding='latin1') 
+        print('.......loaded data, freq=', freq, 'prediction_length=', prediction_length)
+        print('Load New Laptime Dataset:',laptimedb)
+        with open(laptimedb, 'rb') as f:
+            prepared_laptimedata = pickle.load(f, encoding='latin1') 
+        
+else:
+    if useeid:
+        cardinality = [len(global_carids), len(laptime_data)]
+    else:
+        cardinality = [len(global_carids)]
+
+    prepared_laptimedata = prepare_laptimedata(prediction_length, freq, test_event = _test_event,
+                           train_ratio=0, context_ratio = 0.,shift_len = prediction_length)
+
+    train_ds, test_ds,_,_ = make_dataset_byevent(prepared_laptimedata, prediction_length,freq,
+                                         useeid=useeid, run_ts=_run_ts,
+                                        test_event=_test_event, log_transform =False,
+                                        context_ratio=0, train_ratio = 0)    
+
+
+    if _savedata:
+        print('Save Gluonts Dataset:',dbname)
+        with open(dbname, 'wb') as f:
+            savedata = [freq, prediction_length, cardinality, train_ds, test_ds]
+            pickle.dump(savedata, f, pickle.HIGHEST_PROTOCOL)
+
+        print('Save preprocessed laptime Dataset:',laptimedb)
+        with open(laptimedb, 'wb') as f:
+            pickle.dump(prepared_laptimedata, f, pickle.HIGHEST_PROTOCOL)
+        
+
+
+# ### 3. train the model
+
+# In[ ]:
+
+
+id='oracle'
+run=1
+runid=f'{trainmodel}-{dataset}-all-indy-f1min-t{prediction_length}-e{epochs}-r{run}_{id}_t{prediction_length}'
+modelfile = _task_dir + runid
+
+if _skip_overwrite and os.path.exists(modelfile):
+    print('Model checkpoint found at:',modelfile)
+
+else:
+    #get target dim
+    entry = next(iter(train_ds))
+    target_dim = entry['target'].shape
+    target_dim = target_dim[0] if len(target_dim) > 1 else 1
+    print('target_dim:%s', target_dim)
+
+    estimator = init_estimator(trainmodel, gpuid, 
+            epochs, batch_size,target_dim, distr_output = distr_output,use_feat_static = use_feat_static)
+
+    predictor = estimator.train(train_ds)
+
+    if _savedata:
+        os.makedirs(modelfile, exist_ok=True)
+
+        print('Start to save the model to %s', modelfile)
+        predictor.serialize(Path(modelfile))
+        print('End of saving the model.')
+
+
+# 
+# ### 4. evaluate the model
+
+# In[ ]:
+
+
+lapmode = _inlap_status
+fmode = _feature_mode
+runts = dataset
+mid = f'{testmodel}-%s-%s-%s-%s'%(runts, year, inlapstr[lapmode], cur_featurestr)
+datasetid = outputRoot + _dataset_id
+
+if _skip_overwrite and os.path.exists(SIMULATION_OUTFILE):
+    print('Load Simulation Results:',SIMULATION_OUTFILE)
+    with open(SIMULATION_OUTFILE, 'rb') as f:
+        dfs,acc,ret,pret = pickle.load(f, encoding='latin1') 
+    print('.......loaded data, ret keys=', ret.keys())
+    
+    
+    # init the stint module
+    #
+    # in test mode, set all train_len = 40 to unify the evaluation results
+    #
+    init_simulation(datasetid, _test_event, 'rank',stint.COL_RANK,'rank',prediction_length, 
+                    pitmodel=pitmodel, inlapmode=lapmode,featuremode =fmode,
+                    train_len = _test_train_len, pitmodel_bias= _pitmodel_bias)    
+
+else:
+    #run simulation
+    acc, ret, pret = {}, {}, {}
+
+    #lapmode = _inlap_status
+    #fmode = _feature_mode
+    #runts = dataset
+    #mid = f'{testmodel}-%s-%s-%s-%s'%(runts, year, inlapstr[lapmode], featurestr[fmode])
+
+    if runts == 'rank':
+        acc[mid], ret[mid] = simulation(datasetid, _test_event, 
+                    'rank',stint.COL_RANK,'rank',
+                   prediction_length, stint.MODE_ORACLE,loopcnt, 
+                      pitmodel=pitmodel, model=testmodel, inlapmode=lapmode,featuremode =fmode,
+                    train_len = _test_train_len, forecastmode = _forecast_mode, joint_train = _joint_train,
+                    pitmodel_bias= _pitmodel_bias)
+    else:
+        acc[mid], ret[mid] = simulation(datasetid, _test_event, 
+                    'timediff',stint.COL_TIMEDIFF,'timediff2rank',
+                   prediction_length, stint.MODE_ORACLE,loopcnt, 
+                      pitmodel=pitmodel, model=testmodel, inlapmode=lapmode,featuremode =fmode,
+                    train_len = _test_train_len, forecastmode = _forecast_mode, joint_train = _joint_train,
+                    pitmodel_bias= _pitmodel_bias)
+
+    if _forecast_mode == 'shortterm':
+        allsamples, alltss = get_allsamples(ret[mid], year=year)
+        _, pret[mid]= prisk_direct_bysamples(allsamples, alltss)
+        print(pret[mid])
+    
+
+    dfs={}
+
+    mode=1
+    df = get_alldf_mode(ret[mid], year=year,mode=mode)
+    name = '%s_%s'%(testmodel, 'mean' if mode==1 else ('mode' if mode==0 else 'median'))
+    if year not in dfs:
+        dfs[year] = {}
+    dfs[year][name] = df
+
+    _trim = 0
+    _include_final = True
+    _include_stintlen = True
+    include_str = '1' if _include_final else '0'
+    stint_str = '1' if _include_stintlen else ''            
+    #simulation_outfile=outputRoot + f'shortterm-dfout-oracle-indy500-{dataset}-{inlapstr[_inlap_status]}-{featurestr[_feature_mode]}-2018-oracle-l{loopcnt}-alldata-weighted.pickle'
+
+    with open(SIMULATION_OUTFILE, 'wb') as f:
+        savedata = [dfs,acc,ret,pret]
+        pickle.dump(savedata, f, pickle.HIGHEST_PROTOCOL)
+        
+#alias
+ranknetdf = dfs   
+ranknet_ret = ret
+
+
+# ### 5. final evaluation
+
+# In[ ]:
+
+
+if _skip_overwrite and os.path.exists(EVALUATION_RESULT_DF):
+    print('Load Evaluation Results:',EVALUATION_RESULT_DF)
+    oracle_eval_result = pd.read_csv(EVALUATION_RESULT_DF)
+
+else:    
+    ##-------------------------------------------------------------------------------
+    if _forecast_mode == 'shortterm':
+
+        # get pit laps, pit-covered-laps
+        # pitdata[year] = [pitlaps, pitcoveredlaps]
+        with open('pitcoveredlaps-g1.pickle', 'rb') as f:
+            # The protocol version used is detected automatically, so we do not
+            # have to specify it.
+            pitdata = pickle.load(f, encoding='latin1') 
+
+        #
+        # Model,SignAcc,MAE,50-Risk,90-Risk
+        # 
+        cols = ['Year','Model','ExpID','laptype','Top1Acc','MAE','50-Risk','90-Risk']
+        plen = prediction_length
+        usemeanstr='mean'
+
+        #load data
+        # dfs,acc,ret,pret
+
+        retdata = []
+
+        #oracle
+        dfx = ret[mid]
+        allsamples, alltss = get_allsamples(dfx, year=year)
+        #_, pret[mid]= prisk_direct_bysamples(ret[mid][0][1], ret[mid][0][2])
+        _, prisk_vals = prisk_direct_bysamples(allsamples, alltss)
+
+        dfout = do_rerank(ranknetdf[year][f'{testmodel}_mean'])
+        accret = stint.get_evalret_shortterm(dfout)[0]
+        #fsamples, ftss = runs2samples_ex(ranknet_ret[f'oracle-RANK-{year}-inlap-nopitage'],[])
+        #_, prisk_vals = prisk_direct_bysamples(fsamples, ftss)
+        retdata.append([year,f'{testmodel}',configname,'all', accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
+
+        for laptype in ['normal','pit']:
+            # select the set
+            pitcoveredlaps = pitdata[year][1]
+            normallaps = set([x for x in range(1,201)]) - pitcoveredlaps
+
+            if laptype == 'normal':
+                sellaps = normallaps
+                clearlaps = pitcoveredlaps
+            else:
+                sellaps = pitcoveredlaps
+                clearlaps = normallaps
+
+
+            # pitcoveredlaps start idx = 1
+            startlaps = [x-plen-1 for x in sellaps]
+            #sellapidx = np.array([x-1 for x in sellaps])
+            clearidx = np.array([x-1 for x in clearlaps])
+            print('sellaps:', len(sellaps), 'clearlaps:',len(clearlaps))
+
+            #oracle
+            #outfile=f'shortterm-dfout-ranknet-indy500-rank-inlap-nopitage-20182019-oracle-l10-alldata-weighted.pickle'
+            #_all = load_dfout_all(outfile)[0]
+            #ranknetdf, acc, ret, pret = _all[0],_all[1],_all[2],_all[3]
+
+            dfout = do_rerank(ranknetdf[year][f'{testmodel}_mean'])
+
+            allsamples, alltss = get_allsamples(dfx, year=year)
+
+
+            allsamples, alltss = clear_samples(allsamples, alltss,clearidx)
+
+            _, prisk_vals = prisk_direct_bysamples(allsamples, alltss)
+
+            dfout = dfout[dfout['startlap'].isin(startlaps)]
+            accret = stint.get_evalret_shortterm(dfout)[0]
+
+            print(year, laptype,f'RankNet-{testmodel}',accret[0], accret[1], prisk_vals[1], prisk_vals[2])
+            retdata.append([year, f'{testmodel}',configname,laptype, accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
+            
+    ##-------------------------------------------------------------------------------
+    elif _forecast_mode == 'stint':
+        if testmodel == 'oracle':
+            datafile=f'stint-dfout-mlmodels-indy500-tr2013_2017-te2018_2019-end1-oracle-t0-tuned.pickle'
+        else:
+            datafile=f'stint-dfout-mlmodels-indy500-tr2013_2017-te2018_2019-end1-normal-t0-tuned.pickle'
+        #preddf = load_dfout(outfile)
+        with open(datafile, 'rb') as f:
+            preddf = pickle.load(f, encoding='latin1')[0] 
+        #preddf_oracle = load_dfout(outfile)
+        ranknet_ret = ret 
+
+        errlist = {}
+        errcnt, errlist[year] = cmp_df(ranknetdf[year][f'{testmodel}_mean'], preddf[year]['lasso'])
+        
+        retdata = []
+        #
+        # Model,SignAcc,MAE,50-Risk,90-Risk
+        # 
+        cols = ['Year','Model','ExpID','laptype','SignAcc','MAE','50-Risk','90-Risk']
+        models = {'currank':'CurRank','rf':'RandomForest','svr_lin':'SVM','xgb':'XGBoost'}
+
+        for clf in ['currank','rf','svr_lin','xgb']:
+            print('year:',year,'clf:',clf)
+            dfout, accret = eval_sync(preddf[year][clf],errlist[year])
+            fsamples, ftss = df2samples_ex(dfout)
+            _, prisk_vals = prisk_direct_bysamples(fsamples, ftss)
+
+            retdata.append([year,models[clf],configname,'all', accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
+            
+        #ml models -oracle
+        #for clf in ['rf','svr_lin','xgb']:
+        #    print('year:',year,'clf:',clf)
+        #    dfout, accret = eval_sync(preddf_oracle[year][clf],errlist[year])
+        #    fsamples, ftss = df2samples(dfout)
+        #    _, prisk_vals = prisk_direct_bysamples(fsamples, ftss)
+        #    retdata.append([year,models[clf]+'-Oracle',configname,'all',accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
+
+        dfout, accret = eval_sync(ranknetdf[year][f'{testmodel}_mean'], errlist[year],force2int=True)
+        #fsamples, ftss = df2samples(dfout)
+        fsamples, ftss = runs2samples(ranknet_ret[mid],errlist[f'{year}'])
+        _, prisk_vals = prisk_direct_bysamples(fsamples, ftss)
+        retdata.append([year,f'{testmodel}',configname,'all',accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
+
+        #dfout, accret = eval_sync(ranknetdf[year]['oracle_mean'], errlist[year],force2int=True)
+        ##fsamples, ftss = df2samples(dfout)
+        #fsamples, ftss = runs2samples(ranknet_ret[f'oracle-TIMEDIFF-{year}-noinlap-nopitage'],errlist[f'{year}'])
+        #_, prisk_vals = prisk_direct_bysamples(fsamples, ftss)
+        #retdata.append([year,'RankNet-Oracle',accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
+
+    oracle_eval_result = pd.DataFrame(data=retdata, columns=cols)
+    if _savedata:
+        oracle_eval_result.to_csv(EVALUATION_RESULT_DF)    
+
+
+# ### 6. Draw forecasting results
+
+# In[ ]:
+
+
+if _forecast_mode == 'shortterm' and _joint_train == False:
+    if _skip_overwrite and os.path.exists(LONG_FORECASTING_DFS):
+        fname = LONG_FORECASTING_DFS
+        print('Load Long Forecasting Data:',fname)
+        with open(fname, 'rb') as f:
+            alldata = pickle.load(f, encoding='latin1') 
+        print('.......loaded data, alldata keys=', alldata.keys())
+
+    else:    
+
+        oracle_ret = ret    
+        mid = f'{testmodel}-%s-%s-%s-%s'%(runts, year, inlapstr[lapmode], cur_featurestr)
+        print('eval mid:', mid, f'{testmodel}_ret keys:', ret.keys())
+
+        ## init predictor
+        _predictor =  NaivePredictor(freq= freq, prediction_length = prediction_length)
+
+        oracle_dfout = do_rerank(dfs[year][f'{testmodel}_mean'])
+        carlist = set(list(oracle_dfout.carno.values))
+        carlist = [int(x) for x in carlist]
+        print('carlist:', carlist,'len:',len(carlist))
+
+        #carlist = [13, 7, 3, 12]
+        #carlist = [13]    
+
+        retdata = {}
+        for carno in carlist:
+            print("*"*40)
+            print('Run models for carno=', carno)
+            # create the test_ds first
+            test_cars = [carno]
+
+            #train_ds, test_ds, trainset, testset = stint.make_dataset_byevent(events_id[_test_event], 
+            #                                 prediction_length,freq, 
+            #                                 oracle_mode=stint.MODE_ORACLE,
+            #                                 run_ts = _run_ts,
+            #                                 test_event = _test_event,
+            #                                 test_cars=test_cars,
+            #                                 half_moving_win = 0,
+            #                                 train_ratio = 0.01)
+
+            train_ds, test_ds, trainset, testset = make_dataset_byevent(prepared_laptimedata, prediction_length,freq,
+                                             useeid=useeid, run_ts=_run_ts,
+                                            test_event=_test_event, log_transform =False,
+                                            context_ratio=0, train_ratio = 0,
+                                            test_cars = test_cars)    
+
+
+            if (len(testset) <= 10 + prediction_length):
+                print('ts too short, skip ', len(testset))
+                continue
+
+            #by first run samples
+            samples = oracle_ret[mid][0][1][test_cars[0]]
+            tss  = oracle_ret[mid][0][2][test_cars[0]]
+            target_oracle1, tss_oracle1 = long_predict_bysamples('1run-samples', samples, tss)
+
+            #by first run output df(_use_mean = true, already reranked)
+            df = oracle_ret[mid][0][0]
+            dfin_oracle = df[df['carno']==test_cars[0]]
+            target_oracle2, tss_oracle2 = long_predict_bydf(f'{testmodel}-1run-dfout', dfin_oracle)        
+
+
+            #by multi-run mean at oracle_dfout
+            df = oracle_dfout
+            dfin_oracle = df[df['carno']==test_cars[0]]
+            target_oracle3, tss_oracle3 = long_predict_bydf(f'{testmodel}-multimean', dfin_oracle)        
+
+
+            #no rerank
+            df = ranknetdf[year][f'{testmodel}_mean']
+            dfin_oracle = df[df['carno']==test_cars[0]]
+            target_oracle4, tss_oracle4 = long_predict_bydf(f'{testmodel}-norerank-multimean', dfin_oracle)        
+
+
+            #by multiple runs
+            target_oracle_multirun, tss_oracle_multirun = get_ranknet_multirun(
+                                    oracle_ret[mid], 
+                                    test_cars[0],sampleCnt=loopcnt)
+
+            retdata[carno] = [[tss_oracle1,tss_oracle2,tss_oracle3,tss_oracle4,tss_oracle_multirun],
+                               [target_oracle1,target_oracle2,target_oracle3,target_oracle4,target_oracle_multirun]]
+
+        alldata = retdata    
+
+        if _savedata:
+            with open(LONG_FORECASTING_DFS, 'wb') as f:
+                pickle.dump(alldata, f, pickle.HIGHEST_PROTOCOL)  
+            
+           
+
+
+# In[ ]:
+
+
+if _forecast_mode == 'shortterm' and _joint_train == False:
+    destdir = FORECAST_FIGS_DIR
+
+    if _skip_overwrite and os.path.exists(destdir):
+        print('Long Forecasting Figures at:',destdir)
+
+    else:
+        with open('stagedata-Indy500_2013_2019_v9_p0.pickle', 'rb') as f:
+            stagedata = pickle.load(f, encoding='latin1') 
+            _alldata, rankdata, _acldata, _flagdata = stagedata[_test_event]
+
+        #destdir = outputRoot + 'oracle-forecast-figs/'
+        os.makedirs(destdir, exist_ok=True)
+
+        for carno in alldata:
+            plotoracle(alldata, carno, destdir)
+
+        #draw summary result
+        outputfile = destdir + f'{configname}'
+        plotallcars(alldata, outputfile, drawid = 0)
+
+
+# final output
+pd.set_option("display.max_rows", None, "display.max_columns", None)
+print(oracle_eval_result)
+
 

@@ -775,6 +775,21 @@ def load_model(prediction_length, model_name,trainid,epochs=1000, exproot='../mo
             predictor =  Predictor.deserialize(Path(modeldir))
             print(f'loading model...{model}...done!, ctx:{predictor.ctx}')
 
+        # transformer
+        elif model_name == 'transformer' or model_name == 'Transformer':
+            model=f'Transformer-{_task_id}-all-indy-f1min-t{prediction_length}-e{epochs}-r1_oracle_t{prediction_length}'
+            modeldir = rootdir + model
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  Predictor.deserialize(Path(modeldir))
+            print(f'loading model...{model}...done!, ctx:{predictor.ctx}')
+
+        elif model_name == 'Transformer-MLP' or model_name == 'Transformer-Oracle':
+            model=f'Transformer-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e{epochs}-r1_oracle_t{prediction_length}'
+            modeldir = rootdir + model
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  Predictor.deserialize(Path(modeldir))
+            print(f'loading model...{model}...done!, ctx:{predictor.ctx}')
+
         # deepAR-Oracle
         elif model_name == 'oracle-laponly':
             model=f'deepAR-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_oracle-laponly_t{prediction_length}'

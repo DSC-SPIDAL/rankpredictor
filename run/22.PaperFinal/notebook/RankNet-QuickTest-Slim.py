@@ -11,7 +11,6 @@
 #     evaluate model
 # 
 
-# In[1]:
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -61,18 +60,55 @@ from indycar.model.quicktest_modules import *
 # ## run
 
 # In[2]:
+### run
+program = os.path.basename(sys.argv[0])
+logger = logging.getLogger(program)
 
+# logging configure
+import logging.config
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s')
+logging.root.setLevel(level=logging.INFO)
+logger.info("running %s" % ' '.join(sys.argv))
+
+# cmd argument parser
+usage = 'RankNet-QuickTest.py <configfile> [options]'
+parser = OptionParser(usage)
+parser.add_option("--forecast_mode", dest="forecast_mode", default="")
+parser.add_option("--trainmodel", default='', dest="trainmodel")
+parser.add_option("--testmodel", default='', dest="testmodel")
+parser.add_option("--joint_train", action="store_true", default=False, dest="joint_train")
+parser.add_option("--debug", action="store_true", default=False, dest="debug")
+parser.add_option("--loopcnt", default=-1,type='int',  dest="loopcnt")
+parser.add_option("--gpuid", default=-1,type='int',  dest="gpuid")
+parser.add_option("--pitmodel_bias", default=-1, type='int', dest="pitmodel_bias")
+parser.add_option("--year", default='', dest="year")
+parser.add_option("--test_event", default='', dest="test_event")
+
+opt, args = parser.parse_args()
+print(len(args), opt.joint_train)
+
+#check validation
+if len(args) != 1:
+    logger.error(globals()['__doc__'] % locals())
+    sys.exit(-1)
+
+configfile = args[0]
+
+base=os.path.basename(configfile)
+configname = os.path.splitext(base)[0]
 
 WorkRootDir = 'QuickTestOutput'
-#reference
 #configname = 'weighted-noinlap-nopitage-nocate-c60-drank'
-#configname = 'weighted-noinlap-S0LTYP0T-nocate-c60-drank-pitmodel'
-configname = 'weighted-noinlap-S0LTYP0T-nocate-c60-drank-oracle'
-configfile = f'{configname}.ini'
+#configfile = f'{configname}.ini'
+
+if not os.path.exists(configfile):
+    print('config file not exists error:', configfile)
+    sys.exit(-1)
 
 if configfile != '':
     config = configparser.RawConfigParser()
-    config.read(WorkRootDir + '/' + configfile)
+    #config.read(WorkRootDir + '/' + configfile)
+    config.read(configfile)
 
     #set them back
     section = "RankNet-QuickTest"
@@ -118,8 +154,14 @@ else:
 
 
 # debug test
-_skip_overwrite = False
-_debugstr = '-debug'
+#_skip_overwrite = False
+
+if opt.debug:
+    _debugstr = '-debug'
+else:
+    _debugstr = ''
+#gpuid = 5
+#epochs = 1000
 
 # new added parameters
 _test_train_len = 40
@@ -150,11 +192,37 @@ _forecast_mode = 'shortterm'
 #_joint_train = True
 #loopcnt = 2
 
+# transformer
+#trainmodel = 'Transformer-Oracle'
+#testmodel = 'Transformer-Oracle'
+#trainmodel = 'Transformer'
+#testmodel = 'Transformer'
+#_joint_train = False
+#loopcnt = 2
+
+#load arguments overwites
+if opt.forecast_mode != '':
+    _forecast_mode = opt.forecast_mode
+if opt.trainmodel != '':
+    trainmodel = opt.trainmodel
+if opt.testmodel != '':
+    testmodel = opt.testmodel
+if opt.joint_train != False:
+    _joint_train = True
+if opt.gpuid > 0:
+    gpuid = opt.gpuid
+if opt.loopcnt > 0:
+    loopcnt = opt.loopcnt
+if opt.pitmodel_bias >= 0:
+    _pitmodel_bias = opt.pitmodel_bias
+if opt.year != '':
+    year = opt.year
+if opt.test_event != '':
+    _test_event = opt.test_event
+
 if testmodel == 'pitmodel':
     testmodel = 'pitmodel%s'%(_pitmodel_bias if _pitmodel_bias!=0 else '')
 
-loopcnt = 2    
-    
 #featurestr = {FEATURE_STATUS:'nopitage',FEATURE_PITAGE:'pitage',FEATURE_LEADERPITCNT:'leaderpitcnt'}
 #cur_featurestr = featurestr[_feature_mode]
 print('current configfile:', configfile)
@@ -318,15 +386,9 @@ else:
 gvar.global_carids = global_carids
 
 
-# In[7]:
-
-
-gvar.events_id
-
-
 # ### 2. make gluonts db
 
-# In[8]:
+# In[7]:
 
 
 outdir = outputRoot + _dataset_id
@@ -402,7 +464,7 @@ else:
 
 # ### 3. train the model
 
-# In[ ]:
+# In[8]:
 
 
 id='oracle'
@@ -436,7 +498,7 @@ else:
 # 
 # ### 4. evaluate the model
 
-# In[ ]:
+# In[9]:
 
 
 lapmode = _inlap_status
@@ -519,7 +581,7 @@ ranknet_ret = ret
 
 # ### 5. final evaluation
 
-# In[ ]:
+# In[10]:
 
 
 if _skip_overwrite and os.path.exists(EVALUATION_RESULT_DF):
@@ -657,7 +719,7 @@ else:
 
 # ### 6. Draw forecasting results
 
-# In[ ]:
+# In[11]:
 
 
 if _forecast_mode == 'shortterm' and _joint_train == False:
@@ -716,30 +778,30 @@ if _forecast_mode == 'shortterm' and _joint_train == False:
             #by first run samples
             samples = oracle_ret[mid][0][1][test_cars[0]]
             tss  = oracle_ret[mid][0][2][test_cars[0]]
-            target_oracle1, tss_oracle1 = long_predict_bysamples('1run-samples', samples, tss)
+            target_oracle1, tss_oracle1 = long_predict_bysamples('1run-samples', samples, tss, test_ds, _predictor)
 
             #by first run output df(_use_mean = true, already reranked)
             df = oracle_ret[mid][0][0]
             dfin_oracle = df[df['carno']==test_cars[0]]
-            target_oracle2, tss_oracle2 = long_predict_bydf(f'{testmodel}-1run-dfout', dfin_oracle)        
+            target_oracle2, tss_oracle2 = long_predict_bydf(f'{testmodel}-1run-dfout', dfin_oracle, test_ds, _predictor)        
 
 
             #by multi-run mean at oracle_dfout
             df = oracle_dfout
             dfin_oracle = df[df['carno']==test_cars[0]]
-            target_oracle3, tss_oracle3 = long_predict_bydf(f'{testmodel}-multimean', dfin_oracle)        
+            target_oracle3, tss_oracle3 = long_predict_bydf(f'{testmodel}-multimean', dfin_oracle, test_ds, _predictor)        
 
 
             #no rerank
             df = ranknetdf[year][f'{testmodel}_mean']
             dfin_oracle = df[df['carno']==test_cars[0]]
-            target_oracle4, tss_oracle4 = long_predict_bydf(f'{testmodel}-norerank-multimean', dfin_oracle)        
+            target_oracle4, tss_oracle4 = long_predict_bydf(f'{testmodel}-norerank-multimean', dfin_oracle, test_ds, _predictor)        
 
 
             #by multiple runs
             target_oracle_multirun, tss_oracle_multirun = get_ranknet_multirun(
                                     oracle_ret[mid], 
-                                    test_cars[0],sampleCnt=loopcnt)
+                                    test_cars[0], test_ds, _predictor,sampleCnt=loopcnt)
 
             retdata[carno] = [[tss_oracle1,tss_oracle2,tss_oracle3,tss_oracle4,tss_oracle_multirun],
                                [target_oracle1,target_oracle2,target_oracle3,target_oracle4,target_oracle_multirun]]
@@ -753,7 +815,7 @@ if _forecast_mode == 'shortterm' and _joint_train == False:
            
 
 
-# In[ ]:
+# In[12]:
 
 
 if False:
@@ -779,26 +841,8 @@ if False:
             plotallcars(alldata, outputfile, drawid = 0)
 
 
-# In[ ]:
-
-
-#plotoracle(alldata, 3)    
-
-
-# In[ ]:
-
-
-outputRoot
-
-
-# In[ ]:
-
-
-oracle_eval_result
-
-
-# In[ ]:
-
-
+# final output
+pd.set_option("display.max_rows", None, "display.max_columns", None)
+print(oracle_eval_result)
 
 
