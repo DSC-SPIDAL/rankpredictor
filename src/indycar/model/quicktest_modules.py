@@ -186,7 +186,7 @@ def nan_helper(y):
 
     return np.isnan(y), lambda z: z.nonzero()[0]
 
-def get_lap2nextpit(lap_status, maxlap=200):
+def get_lap2nextpit(lap_status, maxlap):
     """
     input:
         lapstatus  ; array of 0/1 indicating pitstops for each lap, nan means incomplete race
@@ -400,7 +400,7 @@ def get_laptime_dataset(stagedata, inlap_status = 0):
         for caridx in range(datalist.shape[0]):
             lap_status = datalist[caridx, LAP_STATUS, :]
             #pit status
-            lap2nextpit = get_lap2nextpit(lap_status)
+            lap2nextpit = get_lap2nextpit(lap_status, totallaps-1)
             datalist[caridx, LAP2NEXTPIT, :] = lap2nextpit        
                 
         #add one record
@@ -1364,7 +1364,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
 
         estimator = ProphetPredictor(freq= freq, prediction_length = prediction_length)
     elif model == 'arima':
-        estimator = RForecastPredictor(method_name='arima',freq= freq, prediction_length = prediction_length, trunc_length = 200)
+        estimator = RForecastPredictor(method_name='arima',freq= freq, prediction_length = prediction_length, trunc_length = context_length)
     elif model == 'naive':
         estimator = NaivePredictor(freq= freq, prediction_length = prediction_length)
     else:
@@ -1403,13 +1403,7 @@ def init_simulation(datasetid, testevent, taskid, runts, expid, predictionlen,
     
     stint._inlap_status = inlapmode
     
-    stint.init(pitmodel, pitmodel_bias= pitmodel_bias)
-    
-    # todo: add into stint code
-    #here add new laptime_data with new features
-    #
-    stint.set_laptimedata(prepared_laptimedata)
-    
+    stint.init(gvar.LAPTIME_DATASET, pitmodel, pitmodel_bias= pitmodel_bias)
     
     stint._dataset_id = datasetid
     stint._test_event = testevent
@@ -1428,6 +1422,11 @@ def init_simulation(datasetid, testevent, taskid, runts, expid, predictionlen,
     stint._test_train_len = test_train_len
     
     stint._joint_train = joint_train
+
+    # todo: add into stint code
+    #here add new laptime_data with new features
+    #
+    stint.set_laptimedata(prepared_laptimedata)
     
 def simulation(datasetid, testevent, taskid, runts, expid, predictionlen, 
                datamode, loopcnt, featuremode = stint.FEATURE_STATUS,
@@ -1449,14 +1448,9 @@ def simulation(datasetid, testevent, taskid, runts, expid, predictionlen,
     
     stint._inlap_status = inlapmode
     
-    stint.init(pitmodel, pitmodel_bias= pitmodel_bias)
+    stint.init(gvar.LAPTIME_DATASET, pitmodel, pitmodel_bias= pitmodel_bias)
     
-    # todo: add into stint code
-    #here add new laptime_data with new features
-    #
-    stint.set_laptimedata(prepared_laptimedata)
-    #stint.set_laptimedata(laptime_data)
-    
+   
     stint._dataset_id = datasetid
     stint._test_event = testevent
     #_test_event = 'Indy500-2019'
@@ -1480,7 +1474,13 @@ def simulation(datasetid, testevent, taskid, runts, expid, predictionlen,
         stint._debug_carlist=[]
         stint._force_endpit_align = False
         stint._include_endpit = True    
-    
+ 
+    # todo: add into stint code
+    #here add new laptime_data with new features
+    #
+    stint.set_laptimedata(prepared_laptimedata)
+    #stint.set_laptimedata(laptime_data)
+
     predictor = stint.load_model(predictionlen, model,trainid='indy500',epochs = epochs, exproot='./')
 
     ret2 = {}
@@ -2299,7 +2299,8 @@ def ploth(ts_entry, forecast_entry, pits,caution, pitstop,outputfile,
         locs, labels = plt.xticks() 
         #plt.xticks(locs, range(len(locs)))
         start_loc = locs[0]        
-        offset = range(0, 200, 5)
+        #offset = range(0, 200, 5)
+        offset = range(0, gvar.maxlap, 5)
         #new_locs = range(start_loc , start_loc+200, 10)
         new_locs = [start_loc + x for x in offset]
         #new_labels = [str(x-start_loc + 1) for x in new_locs]
@@ -2355,7 +2356,7 @@ def plotcar(carno):
     #target_oracle(by longpredict), tss_oracle_multirun,tss_ranknet_multirun
     tsss, targets = alldata[carno]
     
-    pits, cautions, caution, pitstop,ranks,laptimes = get_racestatus(carno, rankdata)
+    pits, cautions, caution, pitstop,ranks,laptimes = get_racestatus(carno, gvar.rankdata)
     print(np.where(pitstop==1))
     
     ploth(tsss[:5], targets[:5], pits, caution, pitstop,
@@ -2372,7 +2373,7 @@ def plotcar_laptime(carno):
     #target_oracle(by longpredict), tss_oracle_multirun,tss_ranknet_multirun
     tsss, targets = alldata[carno]
     
-    pits, cautions, caution, pitstop,ranks,laptimes = get_racestatus(carno, rankdata)
+    pits, cautions, caution, pitstop,ranks,laptimes = get_racestatus(carno, gvar.rankdata)
     print(np.where(pitstop==1))
     
     ploth(tsss, targets, pits, caution, pitstop,
@@ -2398,7 +2399,7 @@ def plotrank(outputfile, mode='RANK' ):
         #target_oracle(by longpredict), tss_oracle_multirun,tss_ranknet_multirun
         tsss, targets = alldata[carno]
 
-        pits, cautions, caution, pitstop,ranks,laptimes = get_racestatus(carno, rankdata)
+        pits, cautions, caution, pitstop,ranks,laptimes = get_racestatus(carno, gvar.rankdata)
         print(np.where(pitstop==1))
     
         ax = plt.subplot(figcnt, 1, idx+1)
@@ -2417,7 +2418,8 @@ def plotrank(outputfile, mode='RANK' ):
             #add racestatus
             add_status(ax,0, caution, pitstop,y=32, height=5)
         
-        ax.set_xlim((0,200))
+        #ax.set_xlim((0,200))
+        ax.set_xlim((0,gvar.maxlap))
         
         ax.set_ylabel('car-%d'%carno)
         
@@ -2440,7 +2442,7 @@ def plotcarx(carno):
     tsss[2] = oracle_tss[1]
     targets[2] = oracle_targets[1]
     
-    pits, cautions, caution, pitstop,ranks,laptimes = get_racestatus(carno, rankdata)
+    pits, cautions, caution, pitstop,ranks,laptimes = get_racestatus(carno, gvar.rankdata)
     print(np.where(pitstop==1))
     
     ploth(tsss[:5], targets[:5], pits, caution, pitstop,
@@ -2461,7 +2463,7 @@ def plotoracle(alldata, carno, destdir):
     #target_oracle(by longpredict), tss_oracle_multirun,tss_ranknet_multirun
     tsss, targets = alldata[carno]
     
-    pits, cautions, caution, pitstop,ranks,laptimes = get_racestatus(carno, rankdata)
+    pits, cautions, caution, pitstop,ranks,laptimes = get_racestatus(carno, gvar.rankdata)
     print(np.where(pitstop==1))
     
     ploth(tsss, targets, pits, caution, pitstop,
@@ -2501,7 +2503,7 @@ def plotallcars(alldata, outputfile, drawid = 0,
         #target_oracle(by longpredict), tss_oracle_multirun,tss_ranknet_multirun
         ts_entry, forecast_entry = alldata[carno]
 
-        pits, cautions, caution, pitstop,ranks,laptimes = get_racestatus(carno, rankdata)
+        pits, cautions, caution, pitstop,ranks,laptimes = get_racestatus(carno, gvar.rankdata)
         print(np.where(pitstop==1))
     
         ax = plt.subplot(figcnt, 1, idx+1)
@@ -2513,9 +2515,9 @@ def plotallcars(alldata, outputfile, drawid = 0,
 
         # currank
         sv = ts_entry[drawid].iloc[:,0].to_numpy()
-        start = pd.Timestamp("01-01-2019", freq=freq) + prediction_length
-        date_index = pd.date_range(start, periods = len(sv)-prediction_length, freq=freq)
-        df2 = pd.DataFrame(sv[:-prediction_length], index=date_index)        
+        start = pd.Timestamp("01-01-2019", freq=gvar.freq) + gvar.prediction_length
+        date_index = pd.date_range(start, periods = len(sv) - gvar.prediction_length, freq = gvar.freq)
+        df2 = pd.DataFrame(sv[:- gvar.prediction_length], index=date_index)        
         df2.iloc[:,0].plot(linewidth=0.5, color='k',
                             marker='+', alpha=0.7, zorder=-1, label='CurRank') 
         
@@ -2531,7 +2533,8 @@ def plotallcars(alldata, outputfile, drawid = 0,
         locs, labels = plt.xticks() 
         #plt.xticks(locs, range(len(locs)))
         start_loc = locs[0]        
-        offset = range(0, 200, 5)
+        #offset = range(0, 200, 5)
+        offset = range(0, gvar.maxlap, 5)
         #new_locs = range(start_loc , start_loc+200, 10)
         new_locs = [start_loc + x for x in offset]
         #new_labels = [str(x-start_loc + 1) for x in new_locs]
@@ -2613,7 +2616,7 @@ yellow = 'yellow'
 #green = '#80ff80'
 green = 'green'
 
-def add_status(axs,xl, caution, pitstop, maxlap= 200, y=-4, height=2):
+def add_status(axs,xl, caution, pitstop, y=-4, height=2):
     """
     input:
         caution, pitstop : race status
@@ -2774,9 +2777,9 @@ def df2samples(dfall, prediction_len=2, samplecnt=1):
         
     #empty samples
     for carid, carno in enumerate(carlist):
-        full_tss[carno] = np.zeros((200))
+        full_tss[carno] = np.zeros((gvar.maxlap))
         full_tss[carno][:] = np.nan
-        full_samples[carno] = np.zeros((samplecnt,200))
+        full_samples[carno] = np.zeros((samplecnt,gvar.maxlap))
         full_samples[carno][:] = np.nan
         
         for startlap in startlaps[carno]:
@@ -2817,9 +2820,9 @@ def df2samples_ex(dfall, samplecnt=100,errlist=[]):
         
     #empty samples
     for carid, carno in enumerate(carlist):
-        full_tss[carno] = np.zeros((200))
+        full_tss[carno] = np.zeros((gvar.maxlap))
         full_tss[carno][:] = np.nan
-        full_samples[carno] = np.zeros((samplecnt,200))
+        full_samples[carno] = np.zeros((samplecnt,gvar.maxlap))
         full_samples[carno][:] = np.nan
         
         for startlap in startlaps[carno]:
@@ -2870,9 +2873,9 @@ def runs2samples(runret, errlist):
         
     #empty samples
     for carid, carno in enumerate(carlist):
-        full_tss[carno] = np.zeros((200))
+        full_tss[carno] = np.zeros((gvar.maxlap))
         full_tss[carno][:] = np.nan
-        full_samples[carno] = np.zeros((samplecnt,200))
+        full_samples[carno] = np.zeros((samplecnt,gvar.maxlap))
         full_samples[carno][:] = np.nan
         
         for startlap in startlaps[carno]:
@@ -2934,4 +2937,8 @@ def get_config():
 
 def test_global():
     gvar._hi += 200
+
+def get_event_info(event):
+    eid = event.split('-')[0]
+    return gvar.events_info[eid]
 

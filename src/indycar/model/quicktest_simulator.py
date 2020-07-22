@@ -61,7 +61,7 @@ register_matplotlib_converters()
 
 from indycar.model.pitmodel import PitModelSimple, PitModelMLP
 from indycar.model.deeparw import DeepARWeightEstimator
-# In[2]:
+import indycar.model.global_variables as gvar
 
 
 import os
@@ -393,7 +393,7 @@ def update_laptimedata(prediction_length, freq,
     #get test event
     test_idx = -1
     for idx, _data in enumerate(laptime_data):
-        if events[_data[0]] == _test_event:
+        if gvar.events[_data[0]] == _test_event:
             test_idx = idx
             break
     
@@ -622,12 +622,12 @@ def set_laptimedata(newdata):
     #get test event
     test_idx = -1
     for idx, _data in enumerate(laptime_data):
-        if events[_data[0]] == _test_event:
+        if gvar.events[_data[0]] == _test_event:
             test_idx = idx
             break
 
 
-    print('Set a new global laptime_data, shape=', len(newdata), newdata[test_idx][2].shape)
+    print('Set a new global laptime_data, test_event=%s, cnt=%d, shape=%s'%(_test_event, len(newdata), newdata[test_idx][2].shape))
     laptime_data = newdata
 
 #
@@ -858,7 +858,7 @@ def get_pitlaps(verbose = True, prediction_length=2):
     max_lap = 0
 
     for _data in laptime_data:
-        if events[_data[0]] != _test_event:
+        if gvar.events[_data[0]] != _test_event:
             continue
 
         #statistics on the ts length
@@ -986,7 +986,7 @@ def sim_init():
     #get test event
     test_idx = -1
     for idx, _data in enumerate(laptime_data):
-        if events[_data[0]] == _test_event:
+        if gvar.events[_data[0]] == _test_event:
             test_idx = idx
             break
 
@@ -1017,13 +1017,18 @@ def sim_init():
     print('sim_init: after laptime_data, shape=', len(laptime_data), laptime_data[test_idx][2].shape)
 
 
-def update_lapstatus(startlap):
+def update_lapstatus(startlap, pitmodel_trainevent = 'Indy500'):
     """
     update the whole lapstatus data
     """
+
+    #check the test_event, the same as the training event?
+    eid = _test_event.split('-')[0]
+    pitscale = gvar.events_info[pitmodel_trainevent][1] *1.0 / gvar.events_info[eid][1]
+
     run_ts = _run_ts
     for _data in laptime_data:
-        if events[_data[0]] != _test_event:
+        if gvar.events[_data[0]] != _test_event:
             continue
 
         #statistics on the ts length
@@ -1035,13 +1040,13 @@ def update_lapstatus(startlap):
             # rec[features, lapnumber] -> [laptime, rank, track_status, lap_status,timediff]]
             rec = _data[2][rowid]
             carno = _data[1][rowid]
-            update_onets(rec, startlap, carno)
+            update_onets(rec, startlap, carno, pitscale = pitscale)
 
 
 
 _pitmodel = None
 
-def update_onets(rec, startlap, carno):
+def update_onets(rec, startlap, carno, pitscale = 1.):
     """
     update lapstatus after startlap basedon tsrec by pit prediction model
 
@@ -1075,13 +1080,23 @@ def update_onets(rec, startlap, carno):
 
     debug_report('start update_onets', rec[COL_LAPSTATUS], startlap, carno)
 
+    #
+
     #loop on predict nextpit pos
     curpos = startlap
     while True:
         caution_laps_instint = int(rec[COL_CAUTION_LAPS_INSTINT, curpos])
         laps_instint = int(rec[COL_LAPS_INSTINT, curpos])
 
+        #scale
+        if pitscale != 1.0:
+            caution_laps_instint = int(caution_laps_instint / pitscale)
+            laps_instint = int(laps_instint / pitscale)
+
         pred_pit_laps = _pitmodel.predict(caution_laps_instint, laps_instint) + _pitmodel_bias
+
+        #update by pitscale
+        pred_pit_laps = int(pred_pit_laps * pitscale)
 
         nextpos = curpos + pred_pit_laps - laps_instint 
 
@@ -1158,7 +1173,7 @@ def debug_report_mat(startlap, maxnext):
 
     run_ts = _run_ts
     for _data in laptime_data:
-        if events[_data[0]] != _test_event:
+        if gvar.events[_data[0]] != _test_event:
             continue
 
         #statistics on the ts length
@@ -1245,7 +1260,7 @@ def sim_onestep_pred(predictor, prediction_length, freq,
         _test = []
         for _data in _laptime_data:
 
-            if events[_data[0]] != test_event:
+            if gvar.events[_data[0]] != test_event:
                 #jump out
                 continue
 
@@ -1255,7 +1270,7 @@ def sim_onestep_pred(predictor, prediction_length, freq,
 
             #ipdb.set_trace()
             if verbose:
-                print(f'after ====event:{events[_data[0]]}, prediction_len={prediction_length},train_len={train_len}, max_len={np.max(ts_len)}, min_len={np.min(ts_len)}, cars={_data[2].shape[0]}')
+                print(f'after ====event:{gvar.events[_data[0]]}, prediction_len={prediction_length},train_len={train_len}, max_len={np.max(ts_len)}, min_len={np.min(ts_len)}, cars={_data[2].shape[0]}')
 
             # process for each ts
             for rowid in range(_data[2].shape[0]):
@@ -1983,7 +1998,7 @@ def eval_stint_bylaptime(forecasts_et, prediction_length, start_offset):
 
     #convert to elapsedtime
     #todo, Indy500 - > 200 max laps
-    maxlap = 200
+    maxlap = gvar.maxlap
     
     elapsed_time = np.zeros((2, len(carlist), maxlap))
     elapsed_time[:,:] = np.nan
@@ -2024,7 +2039,7 @@ def eval_stint_bylaptime(forecasts_et, prediction_length, start_offset):
 
 #
 #
-def eval_full_samples(lap, forecast_samples, forecast, full_samples, full_tss, maxlap=200, evalbyrank = True):
+def eval_full_samples(lap, forecast_samples, forecast, full_samples, full_tss, evalbyrank = True):
     """
     input:
         lap  ; lap number
@@ -2048,7 +2063,7 @@ def eval_full_samples(lap, forecast_samples, forecast, full_samples, full_tss, m
     samplecnt = len(forecast_samples[carlist[0]])
     
     #diff_time = np.zeros((len(carlist), 1))
-    diff_time = np.zeros((len(carlist), maxlap))
+    diff_time = np.zeros((len(carlist), gvar.maxlap))
     diff_time_hat = np.zeros((len(carlist), samplecnt))
     diff_time[:,:] = np.nan
     diff_time_hat[:,:] = np.nan
@@ -2077,8 +2092,8 @@ def eval_full_samples(lap, forecast_samples, forecast, full_samples, full_tss, m
     for carno in carlist:
         if carno not in full_tss:
             #init
-            full_tss[carno] = np.zeros((maxlap))
-            full_samples[carno] = np.zeros((samplecnt, maxlap))
+            full_tss[carno] = np.zeros((gvar.maxlap))
+            full_samples[carno] = np.zeros((samplecnt, gvar.maxlap))
             full_tss[carno][:] = np.nan
             full_samples[carno][:,:] = np.nan
             full_tss[carno][:lap] = true_rank[caridmap[carno]][:lap]
@@ -2114,7 +2129,7 @@ def eval_stint_direct(forecasts_et, prediction_length):
 
     #convert to elapsedtime
     #todo, Indy500 - > 200 max laps
-    maxlap = 200
+    maxlap = gvar.maxlap
     
     diff_time = np.zeros((2, len(carlist), maxlap))
     diff_time[:,:] = np.nan
@@ -2174,7 +2189,7 @@ def eval_stint_rank(forecasts_et, prediction_length, start_offset):
 
     #convert to elapsedtime
     #todo, Indy500 - > 200 max laps
-    maxlap = 200
+    maxlap = gvar.maxlap
     
     elapsed_time = np.zeros((2, len(carlist), maxlap))
     elapsed_time[:,:] = np.nan
@@ -2226,66 +2241,14 @@ def get_sign(diff):
         sign = 0
     return sign
                 
-#
-# configurataion
-#
-# model path:  <_dataset_id>/<_task_id>-<trainid>/
-#_dataset_id = 'indy2013-2018-nocarid'
-_dataset_id = 'indy2013-2018'
-_test_event = 'Indy500-2018'
-#_test_event = 'Indy500-2019'
-_train_len = 40
-_test_train_len = 40
-
-_feature_mode = FEATURE_STATUS
-_context_ratio = 0.
-
-#_task_id = 'timediff'  # rank,laptime, the trained model's task
-#_run_ts = COL_TIMEDIFF   #COL_LAPTIME,COL_RANK
-#_exp_id='timediff2rank'  #rank, laptime, laptim2rank, timediff2rank... 
-#
-#_task_id = 'lapstatus'  # rank,laptime, the trained model's task
-#_run_ts = COL_LAPSTATUS   #COL_LAPTIME,COL_RANK
-#_exp_id='lapstatus'  #rank, laptime, laptim2rank, timediff2rank... 
-
-_task_id = 'laptime'  # rank,laptime, the trained model's task
-_run_ts = COL_LAPTIME   #COL_LAPTIME,COL_RANK
-_exp_id='laptime2rank'  #rank, laptime, laptim2rank, timediff2rank... 
-
-_inlap_status = 1
-_force_endpit_align = False
-_include_endpit = False
-
-#_use_mean = False   # mean or median to get prediction from samples
-_use_mean = True   # mean or median to get prediction from samples
-
-# joint train the target of (rank, lapstatus)
-_joint_train = False
-_pitmodel_bias = 0
-
-# In[16]:
-global_start_offset = {}
-global_carids = {}
-laptime_data = None
-laptime_data_save = None
-freq = "1min"
-decode_carids = {}
-
-years = ['2013','2014','2015','2016','2017','2018','2019']
-events = [f'Indy500-{x}' for x in years]
-events_id={key:idx for idx, key in enumerate(events)}
-dbid = f'Indy500_{years[0]}_{years[-1]}_v9_p{_inlap_status}'
-
-_trim = 0
-
-def init(pitmodel = '', pitmodel_bias = 0):
+def init(laptimefile, pitmodel = '', pitmodel_bias = 0):
     global global_carids, laptime_data, global_start_offset, decode_carids,_pitmodel
-    global dbid, _inlap_status
+    global _inlap_status
 
-    dbid = f'Indy500_{years[0]}_{years[-1]}_v9_p{_inlap_status}'
+    #dbid = f'Indy500_{years[0]}_{years[-1]}_v9_p{_inlap_status}'
 
     stagedata = {}
-    for event in events:
+    for event in gvar.events:
         #dataid = f'{event}-{year}'
         #alldata, rankdata, acldata, flagdata
         stagedata[event] = load_data(event)
@@ -2298,13 +2261,12 @@ def init(pitmodel = '', pitmodel_bias = 0):
     # start from here
     import pickle
     #with open('laptime_rank_timediff_fulltest-oracle-%s.pickle'%year, 'rb') as f:
-    laptimefile = f'laptime_rank_timediff_pit-oracle-{dbid}.pickle'
+    #laptimefile = f'laptime_rank_timediff_pit-oracle-{gvar.dbid}.pickle'
     with open(laptimefile, 'rb') as f:
         # The protocol version used is detected automatically, so we do not
         # have to specify it.
         global_carids, laptime_data = pickle.load(f, encoding='latin1')
 
-        laptime_data_save = laptime_data
     
     decode_carids={carid:carno for carno, carid in global_carids.items()}
     print(f'init: load dataset {laptimefile} with {len(laptime_data)} races, {len(global_carids)} cars')
@@ -2394,63 +2356,54 @@ def get_evalret_shortterm(df):
     
     return np.array([[acc, mae, rmse, r2],[acc_naive, mae_naive, rmse_naive, r2_naive]])
 
-if __name__ == '__main__':
-    program = os.path.basename(sys.argv[0])
-    logger = logging.getLogger(program)
+#
+# configurataion
+#
+# model path:  <_dataset_id>/<_task_id>-<trainid>/
+#_dataset_id = 'indy2013-2018-nocarid'
+_dataset_id = 'indy2013-2018'
+_test_event = 'Indy500-2018'
+#_test_event = 'Indy500-2019'
+_train_len = 40
+_test_train_len = 40
 
-    # logging configure
-    import logging.config
-    logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s')
-    logging.root.setLevel(level=logging.INFO)
-    logger.info("running %s" % ' '.join(sys.argv))
+_feature_mode = FEATURE_STATUS
+_context_ratio = 0.
 
-    # cmd argument parser
-    usage = 'stint_predictor_fastrun.py --datasetid datasetid --testevent testevent --task taskid '
-    parser = OptionParser(usage)
-    parser.add_option("--task", dest="taskid", default='laptime')
-    parser.add_option("--datasetid", dest="datasetid", default='indy2013-2018')
-    parser.add_option("--testevent", dest="testevent", default='Indy500-2018')
-    parser.add_option("--contextratio", dest="contextratio", default=0.)
-    parser.add_option("--trim", dest="trim", type=int, default=0)
+#_task_id = 'timediff'  # rank,laptime, the trained model's task
+#_run_ts = COL_TIMEDIFF   #COL_LAPTIME,COL_RANK
+#_exp_id='timediff2rank'  #rank, laptime, laptim2rank, timediff2rank... 
+#
+#_task_id = 'lapstatus'  # rank,laptime, the trained model's task
+#_run_ts = COL_LAPSTATUS   #COL_LAPTIME,COL_RANK
+#_exp_id='lapstatus'  #rank, laptime, laptim2rank, timediff2rank... 
 
-    opt, args = parser.parse_args()
+_task_id = 'laptime'  # rank,laptime, the trained model's task
+_run_ts = COL_LAPTIME   #COL_LAPTIME,COL_RANK
+_exp_id='laptime2rank'  #rank, laptime, laptim2rank, timediff2rank... 
 
-    #set global parameters
-    _dataset_id = opt.datasetid
-    _test_event = opt.testevent
-    _trim = opt.trim
-    if opt.taskid == 'laptime':
-        _task_id = 'laptime'  # rank,laptime, the trained model's task
-        _run_ts = COL_LAPTIME   #COL_LAPTIME,COL_RANK
-        _exp_id='laptime2rank'  #rank, laptime, laptim2rank, timediff2rank... 
+_inlap_status = 1
+_force_endpit_align = False
+_include_endpit = False
 
-    elif opt.taskid == 'timediff':
-        _task_id = 'timediff'  # rank,laptime, the trained model's task
-        _run_ts = COL_TIMEDIFF   #COL_LAPTIME,COL_RANK
-        _exp_id='timediff2rank'  #rank, laptime, laptim2rank, timediff2rank... 
+#_use_mean = False   # mean or median to get prediction from samples
+_use_mean = True   # mean or median to get prediction from samples
 
-    elif opt.taskid == 'rank':
-        _task_id = 'rank'  # rank,laptime, the trained model's task
-        _run_ts = COL_RANK   #COL_LAPTIME,COL_RANK
-        _exp_id='rank'  #rank, laptime, laptim2rank, timediff2rank... 
-    else:
-        logger.error('taskid:%s not support yet!', opt.taskid)
-        sys.exit(-1)
+# joint train the target of (rank, lapstatus)
+_joint_train = False
+_pitmodel_bias = 0
 
-    if _dataset_id=='' or _test_event=='':
-        logger.error('datasetid and testevnet cannot be null')
-        sys.exit(-1)
+# In[16]:
+global_start_offset = {}
+global_carids = {}
+laptime_data = None
+freq = "1min"
+decode_carids = {}
+_trim = 0
 
-    if _dataset_id.find('pitage') > 0:
-        _feature_mode = FEATURE_PITAGE
-
-    logger.info('Start evaluation, dataset=%s, testevent=%s, taskid=%s', _dataset_id, _test_event,
-            _task_id)
-
-
-
-    init()
-
-    mytest()
-
+# turn to use gvar
+#years = ['2013','2014','2015','2016','2017','2018','2019']
+#events = [f'Indy500-{x}' for x in years]
+#events_id={key:idx for idx, key in enumerate(events)}
+#dbid = f'Indy500_{years[0]}_{years[-1]}_v9_p{_inlap_status}'
 

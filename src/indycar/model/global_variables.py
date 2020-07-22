@@ -59,3 +59,8 @@ _forecast_mode = 'shortterm'
 events = []
 events_id ={}
 global_carids = {}
+
+maxlap = 200
+dbid = ''
+LAPTIME_DATASET = ''
+rankdata = None
