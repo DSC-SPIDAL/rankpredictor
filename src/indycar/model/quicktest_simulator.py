@@ -626,8 +626,11 @@ def set_laptimedata(newdata):
             test_idx = idx
             break
 
+    if test_idx >= 0:
+        print('Set a new global laptime_data, test_event=%s, cnt=%d, shape=%s'%(_test_event, len(newdata), newdata[test_idx][2].shape))
+    else:
+        print('Error, test event not found in laptimedata', _test_event)
 
-    print('Set a new global laptime_data, test_event=%s, cnt=%d, shape=%s'%(_test_event, len(newdata), newdata[test_idx][2].shape))
     laptime_data = newdata
 
 #
@@ -1250,13 +1253,14 @@ def sim_onestep_pred(predictor, prediction_length, freq,
 
     #_laptime_data = laptime_data.copy()
     _laptime_data = laptime_data
-    carno2rowid = {}
 
     endpos = startlap + prediction_length + 1
     #while(endpos <= endlap + prediction_length + 1):
     while(endpos <= endlap + prediction_length):
         #make the testset
         #_data: eventid, carids, datalist[carnumbers, features, lapnumber]->[laptime, rank, track, lap]]
+
+        carno2rowid = {}
         _test = []
         for _data in _laptime_data:
 
@@ -1415,6 +1419,10 @@ def sim_onestep_pred(predictor, prediction_length, freq,
                 #debug
                 #debug_report('simu_onestep', rec, startlap, carno, col= _run_ts)
                 #debug_report(f'simu_onestep: {startlap}-{endlap}, endpos={endpos}', target_val[:endpos], startlap, carno)
+
+            #jump out
+            # keep _data as current 
+            break
 
         # end of for each ts
 
@@ -2319,6 +2327,7 @@ def get_evalret_shortterm(df):
     maxlap = np.max(df['startlap'].values)
     minlap = np.min(df['startlap'].values)
  
+
     top1 = df[df['endrank']==0]
     top1_pred = df[df['pred_endrank']==0]
 
@@ -2347,14 +2356,23 @@ def get_evalret_shortterm(df):
 
     #print(f'pred: acc={acc}, mae={mae},{mae1}, rmse={rmse},r2={r2}, acc_naive={acc_naive}, mae_naive={mae_naive}, {mae_naive1}')
     #print(f'pred: acc={acc}, mae={mae}, rmse={rmse},r2={r2}, acc_naive={acc_naive}, mae_naive={mae_naive}')
-    print('model: acc={%.2f}, mae={%.2f}, rmse={%.2f},r2={%.2f}, {%d}\n \
-           naive: acc={%.2f}, mae={%.2f}, rmse={%.2f},r2={%.2f}'%(
-               acc, mae, rmse, r2, len(top1_pred),
-               acc_naive, mae_naive, rmse_naive, r2_naive
+    
+    correct = df[df['sign']==df['pred_sign']]
+    signacc = len(correct)/len(df)
+    naive_signcorrect = df[df['sign'] == 0]
+    naive_signacc = len(naive_signcorrect) / len(df)
+
+
+   
+    print('testset size:', len(df), 'minlap:', minlap, 'maxlap:', maxlap)
+    print('model: acc={%.2f}, mae={%.2f}, rmse={%.2f},r2={%.2f}, top1_pred: {%d}, top1_naive: {%d}\n \
+           naive: acc={%.2f}, mae={%.2f}, rmse={%.2f},r2={%.2f}, top1: {%d}'%(
+               acc, mae, rmse, r2, len(top1_pred), len(top1_naive),
+               acc_naive, mae_naive, rmse_naive, r2_naive, len(top1)
             )
         )
     
-    return np.array([[acc, mae, rmse, r2],[acc_naive, mae_naive, rmse_naive, r2_naive]])
+    return np.array([[acc, mae, rmse, r2, signacc],[acc_naive, mae_naive, rmse_naive, r2_naive, naive_signacc]])
 
 #
 # configurataion

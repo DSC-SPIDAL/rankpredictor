@@ -77,12 +77,13 @@ parser.add_option("--forecast_mode", dest="forecast_mode", default="")
 parser.add_option("--trainmodel", default='', dest="trainmodel")
 parser.add_option("--testmodel", default='', dest="testmodel")
 parser.add_option("--joint_train", action="store_true", default=False, dest="joint_train")
-parser.add_option("--debug", action="store_true", default=False, dest="debug")
 parser.add_option("--loopcnt", default=-1,type='int',  dest="loopcnt")
 parser.add_option("--gpuid", default=-1,type='int',  dest="gpuid")
 parser.add_option("--pitmodel_bias", default=-1, type='int', dest="pitmodel_bias")
 parser.add_option("--year", default='', dest="year")
 parser.add_option("--test_event", default='', dest="test_event")
+parser.add_option("--suffix", default='', dest="suffix")
+parser.add_option("--dataroot", default='test/', dest="dataroot")
 
 opt, args = parser.parse_args()
 print(len(args), opt.joint_train)
@@ -151,54 +152,14 @@ else:
 
 
 # In[3]:
-
-
-# debug test
-#_skip_overwrite = False
-
-if opt.debug:
-    _debugstr = '-debug'
-else:
-    _debugstr = ''
-#gpuid = 5
-#epochs = 1000
-
 # new added parameters
+_draw_figs = False
 _test_train_len = 40
 _joint_train = False
 _pitmodel_bias = 0
-
-#_test_event = 'Indy500-2019'
-#year = '2019'
-
 #shortterm, stint
 #_forecast_mode = 'stint'
 _forecast_mode = 'shortterm'
-
-# bias of the pitmodel
-#_pitmodel_bias = 4
-
-#train model: [deepARW-Oracle, deepAR]
-
-# test the standard deepAR model training and testing
-
-# DeepAR
-#trainmodel = 'deepAR'
-#testmodel = 'standard'
-
-# Joint 
-#trainmodel = 'deepAR-multi'
-#testmodel = 'joint'
-#_joint_train = True
-#loopcnt = 2
-
-# transformer
-#trainmodel = 'Transformer-Oracle'
-#testmodel = 'Transformer-Oracle'
-#trainmodel = 'Transformer'
-#testmodel = 'Transformer'
-#_joint_train = False
-#loopcnt = 2
 
 #load arguments overwites
 if opt.forecast_mode != '':
@@ -219,6 +180,12 @@ if opt.year != '':
     year = opt.year
 if opt.test_event != '':
     _test_event = opt.test_event
+if opt.suffix:
+    _debugstr = f'-{opt.suffix}'
+else:
+    _debugstr = ''
+dataroot = opt.dataroot
+
 
 if testmodel == 'pitmodel':
     testmodel = 'pitmodel%s'%(_pitmodel_bias if _pitmodel_bias!=0 else '')
@@ -230,7 +197,7 @@ cur_featurestr = decode_feature_mode(_feature_mode)
 print('feature_mode:', _feature_mode, cur_featurestr)
 print('testmodel:', testmodel)
 print('pitmodel:', pitmodel)
-print('year:', year)
+#print('year:', year)
 print('test_event:', _test_event)
 
 
@@ -247,13 +214,27 @@ catestr = {True:'cate',False:'nocate'}
 #
 # input data parameters
 #
+#events = ['Phoenix','Indy500','Texas','Iowa','Pocono','Gateway']
+#events_totalmiles=[256,500,372,268,500,310]
+#events_laplen = [1.022,2.5,1.5,0.894,2.5,1.25]
+events_info = {
+    'Phoenix':(256, 1.022, 250),'Indy500':(500,2.5,200),'Texas':(372,1.5,248),
+    'Iowa':(268,0.894,300),'Pocono':(500,2.5,200),'Gateway':(310,1.25,248)
+}
+
 years = ['2013','2014','2015','2016','2017','2018','2019']
 events = [f'Indy500-{x}' for x in years]
+
+events.extend(['Phoenix-2018','Texas-2018','Texas-2019','Pocono-2018','Pocono-2019','Iowa-2018','Iowa-2019',
+              'Gateway-2018','Gateway-2019'])
+
 events_id={key:idx for idx, key in enumerate(events)}
-dbid = f'Indy500_{years[0]}_{years[-1]}_v{_featureCnt}_p{_inlap_status}'
+
+#dbid = f'Indy500_{years[0]}_{years[-1]}_v{_featureCnt}_p{_inlap_status}'
+dbid = f'IndyCar_d{len(events)}_v{_featureCnt}_p{_inlap_status}'
 _dataset_id = '%s-%s'%(inlapstr[_inlap_status], cur_featurestr)
 
-
+_train_events = [events_id[x] for x in [f'Indy500-{x}' for x in ['2013','2014','2015','2016','2017']]]
 #
 # internal parameters
 #
@@ -271,7 +252,7 @@ experimentid = f'{weightstr[_use_weighted_model]}-{inlapstr[_inlap_status]}-{cur
 #
 #
 outputRoot = f"{WorkRootDir}/{experimentid}/"
-
+version = f'IndyCar-d{len(events)}'
 
 # standard output file names
 LAPTIME_DATASET = f'{outputRoot}/laptime_rank_timediff_pit-oracle-{dbid}.pickle' 
@@ -318,6 +299,12 @@ gvar._joint_train = _joint_train
 gvar._pitmodel_bias = _pitmodel_bias
 gvar.events = events
 gvar.events_id  = events_id
+gvar.events_info = events_info
+gvar._train_events = _train_events
+
+gvar.maxlap = get_event_info(_test_event)[2]
+gvar.dbid = dbid
+gvar.LAPTIME_DATASET = LAPTIME_DATASET
 
 
 # ### 1. make laptime dataset
@@ -520,7 +507,7 @@ if _skip_overwrite and os.path.exists(SIMULATION_OUTFILE):
     #
     init_simulation(datasetid, _test_event, 'rank',stint.COL_RANK,'rank',prediction_length, 
                     pitmodel=pitmodel, inlapmode=lapmode,featuremode =fmode,
-                    train_len = _test_train_len, pitmodel_bias= _pitmodel_bias)    
+                    train_len = _test_train_len, pitmodel_bias= _pitmodel_bias, prepared_laptimedata = prepared_laptimedata)    
 
 else:
     #run simulation
@@ -579,9 +566,12 @@ ranknetdf = dfs
 ranknet_ret = ret
 
 
+# In[10]:
+
+
 # ### 5. final evaluation
 
-# In[10]:
+# In[11]:
 
 
 if _skip_overwrite and os.path.exists(EVALUATION_RESULT_DF):
@@ -593,8 +583,8 @@ else:
     if _forecast_mode == 'shortterm':
 
         # get pit laps, pit-covered-laps
-        # pitdata[year] = [pitlaps, pitcoveredlaps]
-        with open('pitcoveredlaps-g1.pickle', 'rb') as f:
+        # pitdata[event] = [pitlaps, pitcoveredlaps]
+        with open('pitcoveredlaps-alldata-g1.pickle', 'rb') as f:
             # The protocol version used is detected automatically, so we do not
             # have to specify it.
             pitdata = pickle.load(f, encoding='latin1') 
@@ -602,7 +592,7 @@ else:
         #
         # Model,SignAcc,MAE,50-Risk,90-Risk
         # 
-        cols = ['Year','Model','ExpID','laptype','Top1Acc','MAE','50-Risk','90-Risk']
+        cols = ['Year','Model','ExpID','laptype','Top1Acc','SignAcc', 'MAE','50-Risk','90-Risk']
         plen = prediction_length
         usemeanstr='mean'
 
@@ -621,11 +611,11 @@ else:
         accret = stint.get_evalret_shortterm(dfout)[0]
         #fsamples, ftss = runs2samples_ex(ranknet_ret[f'oracle-RANK-{year}-inlap-nopitage'],[])
         #_, prisk_vals = prisk_direct_bysamples(fsamples, ftss)
-        retdata.append([year,f'{testmodel}',configname,'all', accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
+        retdata.append([year,f'{testmodel}',configname,'all', accret[0], accret[4], accret[1], prisk_vals[1], prisk_vals[2]])
 
         for laptype in ['normal','pit']:
             # select the set
-            pitcoveredlaps = pitdata[year][1]
+            pitcoveredlaps = pitdata[_test_event][1]
             normallaps = set([x for x in range(1,201)]) - pitcoveredlaps
 
             if laptype == 'normal':
@@ -659,15 +649,17 @@ else:
             dfout = dfout[dfout['startlap'].isin(startlaps)]
             accret = stint.get_evalret_shortterm(dfout)[0]
 
-            print(year, laptype,f'RankNet-{testmodel}',accret[0], accret[1], prisk_vals[1], prisk_vals[2])
-            retdata.append([year, f'{testmodel}',configname,laptype, accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
+            print(year, laptype,f'RankNet-{testmodel}',accret[0], accret[4], accret[1], prisk_vals[1], prisk_vals[2])
+            retdata.append([year, f'{testmodel}',configname,laptype, accret[0], accret[4], accret[1], prisk_vals[1], prisk_vals[2]])
             
     ##-------------------------------------------------------------------------------
     elif _forecast_mode == 'stint':
         if testmodel == 'oracle':
-            datafile=f'stint-dfout-mlmodels-indy500-tr2013_2017-te2018_2019-end1-oracle-t0-tuned.pickle'
+            #datafile=f'stint-dfout-mlmodels-indy500-tr2013_2017-te2018_2019-end1-oracle-t0-tuned.pickle'
+            datafile=f'{dataroot}/stint-dfout-mlmodels-{version}-end1-oracle-t0-tuned.pickle'
         else:
-            datafile=f'stint-dfout-mlmodels-indy500-tr2013_2017-te2018_2019-end1-normal-t0-tuned.pickle'
+            #datafile=f'stint-dfout-mlmodels-indy500-tr2013_2017-te2018_2019-end1-normal-t0-tuned.pickle'
+            datafile=f'{dataroot}/stint-dfout-mlmodels-{version}-end1-normal-t0-tuned.pickle'
         #preddf = load_dfout(outfile)
         with open(datafile, 'rb') as f:
             preddf = pickle.load(f, encoding='latin1')[0] 
@@ -719,7 +711,7 @@ else:
 
 # ### 6. Draw forecasting results
 
-# In[11]:
+# In[12]:
 
 
 if _forecast_mode == 'shortterm' and _joint_train == False:
@@ -815,10 +807,10 @@ if _forecast_mode == 'shortterm' and _joint_train == False:
            
 
 
-# In[12]:
+# In[13]:
 
 
-if False:
+if _draw_figs:
     if _forecast_mode == 'shortterm' and _joint_train == False:
         destdir = FORECAST_FIGS_DIR
 
@@ -826,10 +818,12 @@ if False:
             print('Long Forecasting Figures at:',destdir)
 
         else:
-            with open('stagedata-Indy500_2013_2019_v9_p0.pickle', 'rb') as f:
+            with open(STAGE_DATASET, 'rb') as f:
                 stagedata = pickle.load(f, encoding='latin1') 
                 _alldata, rankdata, _acldata, _flagdata = stagedata[_test_event]
 
+            #set gobal variable
+            gvar.rankdata = rankdata
             #destdir = outputRoot + 'oracle-forecast-figs/'
             os.makedirs(destdir, exist_ok=True)
 
@@ -844,5 +838,8 @@ if False:
 # final output
 pd.set_option("display.max_rows", None, "display.max_columns", None)
 print(oracle_eval_result)
+
+
+
 
 

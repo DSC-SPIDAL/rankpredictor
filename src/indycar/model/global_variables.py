@@ -59,6 +59,7 @@ _forecast_mode = 'shortterm'
 events = []
 events_id ={}
 global_carids = {}
+_train_events = []
 
 maxlap = 200
 dbid = ''

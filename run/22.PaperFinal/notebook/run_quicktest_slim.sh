@@ -13,6 +13,13 @@ filename=$(basename -- "$configfile")
 extension="${filename##*.}"
 filename="${filename%.*}"
 
+VAR=""
+for ELEMENT in $@; do
+  VAR+="${ELEMENT}"
+done
+VAR=`echo $VAR |sed 's/\//_/g'`
+echo $VAR
+
 mkdir -p logs
-python RankNet-QuickTest-Slim.py "$@" | tee logs/${filename}.log
+python RankNet-QuickTest-Slim.py "$@" | tee logs/${VAR}.log
 

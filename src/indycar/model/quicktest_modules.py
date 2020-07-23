@@ -704,6 +704,8 @@ def prepare_laptimedata(laptime_data,
     _laptime_data = laptime_data.copy()
     
     test_eventid = gvar.events_id[test_event]
+    train_events = gvar._train_events
+
     run_ts = COL_RANK
     
     # check shift len
@@ -714,17 +716,15 @@ def prepare_laptimedata(laptime_data,
     #_data: eventid, carids, datalist[carnumbers, features, lapnumber]->[laptime, rank, track, lap]]
     new_data = []
     for _data in _laptime_data:
-        #skip eid > test_eventid
-        if _data[0] > test_eventid:
-            #print('skip this event:', events[_data[0]])
-            print('skip this event:', _data[0])
-            break
-        
         #if events[_data[0]] == test_event:
         if _data[0] == test_eventid:
             test_mode = True
-        else:
-            test_mode = False        
+        elif _data[0] in train_events:
+            test_mode = False
+        #else:
+        #    #skip this event
+        #    print('skip this event:', _data[0])
+        #    continue
         
         #statistics on the ts length
         ts_len = [ _entry.shape[1] for _entry in _data[2]]
@@ -949,17 +949,21 @@ def make_dataset_byevent(_laptime_data,
     totalTSCnt = 0
     totalTSLen = 0
     test_eventid = gvar.events_id[test_event]
+    train_events = gvar._train_events
     
     #_data: eventid, carids, datalist[carnumbers, features, lapnumber]->[laptime, rank, track, lap]]
     for _data in _laptime_data:
         _train = []
         _test = []
         
-        #if events[_data[0]] == test_event:
         if _data[0] == test_eventid:
             test_mode = True
-        else:
+        elif _data[0] in train_events:
             test_mode = False
+        else:
+            #skip this event
+            print('skip this event:', _data[0])
+            continue
             
         #statistics on the ts length
         ts_len = [ _entry.shape[1] for _entry in _data[2]]
