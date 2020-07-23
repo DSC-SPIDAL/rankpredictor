@@ -170,7 +170,7 @@ if opt.testmodel != '':
     testmodel = opt.testmodel
 if opt.joint_train != False:
     _joint_train = True
-if opt.gpuid > 0:
+if opt.gpuid >= 0:
     gpuid = opt.gpuid
 if opt.loopcnt > 0:
     loopcnt = opt.loopcnt
@@ -186,6 +186,8 @@ else:
     _debugstr = ''
 dataroot = opt.dataroot
 
+#discard year
+#year = _test_event
 
 if testmodel == 'pitmodel':
     testmodel = 'pitmodel%s'%(_pitmodel_bias if _pitmodel_bias!=0 else '')
@@ -666,8 +668,11 @@ else:
         #preddf_oracle = load_dfout(outfile)
         ranknet_ret = ret 
 
+        #discard old year
+        #year <- _test_event
+
         errlist = {}
-        errcnt, errlist[year] = cmp_df(ranknetdf[year][f'{testmodel}_mean'], preddf[year]['lasso'])
+        errcnt, errlist[year] = cmp_df(ranknetdf[year][f'{testmodel}_mean'], preddf[_test_event]['lasso'])
         
         retdata = []
         #
@@ -678,11 +683,11 @@ else:
 
         for clf in ['currank','rf','svr_lin','xgb']:
             print('year:',year,'clf:',clf)
-            dfout, accret = eval_sync(preddf[year][clf],errlist[year])
+            dfout, accret = eval_sync(preddf[_test_event][clf],errlist[year])
             fsamples, ftss = df2samples_ex(dfout)
             _, prisk_vals = prisk_direct_bysamples(fsamples, ftss)
 
-            retdata.append([year,models[clf],configname,'all', accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
+            retdata.append([_test_event,models[clf],configname,'all', accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
             
         #ml models -oracle
         #for clf in ['rf','svr_lin','xgb']:
@@ -696,7 +701,7 @@ else:
         #fsamples, ftss = df2samples(dfout)
         fsamples, ftss = runs2samples(ranknet_ret[mid],errlist[f'{year}'])
         _, prisk_vals = prisk_direct_bysamples(fsamples, ftss)
-        retdata.append([year,f'{testmodel}',configname,'all',accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
+        retdata.append([_test_event,f'{testmodel}',configname,'all',accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
 
         #dfout, accret = eval_sync(ranknetdf[year]['oracle_mean'], errlist[year],force2int=True)
         ##fsamples, ftss = df2samples(dfout)
