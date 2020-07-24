@@ -786,6 +786,27 @@ def load_model(prediction_length, model_name,trainid,epochs=1000, exproot='../mo
             print(f'predicting model={model_name}, plen={prediction_length}')
             predictor =  Predictor.deserialize(Path(modeldir))
             print(f'loading model...{model}...done!, ctx:{predictor.ctx}')
+        elif model_name == 'TransformerF-MLP' or model_name == 'TransformerF-Oracle':
+            model=f'TransformerF-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e{epochs}-r1_oracle_t{prediction_length}'
+            modeldir = rootdir + model
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  Predictor.deserialize(Path(modeldir))
+            print(f'loading model...{model}...done!, ctx:{predictor.ctx}')
+        elif model_name == 'TransformerWF-MLP' or model_name == 'TransformerWF-Oracle':
+            model=f'TransformerWF-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e{epochs}-r1_oracle_t{prediction_length}'
+            modeldir = rootdir + model
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  Predictor.deserialize(Path(modeldir))
+            print(f'loading model...{model}...done!, ctx:{predictor.ctx}')
+        elif model_name == 'TransformerWFM-MLP' or model_name == 'TransformerWFM-Oracle':
+            model=f'TransformerWFM-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e{epochs}-r1_oracle_t{prediction_length}'
+            modeldir = rootdir + model
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  Predictor.deserialize(Path(modeldir))
+            print(f'loading model...{model}...done!, ctx:{predictor.ctx}')
+
+
+
 
 
         # deepAR

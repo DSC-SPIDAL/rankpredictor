@@ -38,7 +38,7 @@ def prod(xs):
     return p
 
 
-class TransformerWeightedNetwork(mx.gluon.HybridBlock):
+class TransformerWeightedFullLossNetwork(mx.gluon.HybridBlock):
     @validated()
     def __init__(
         self,
@@ -240,7 +240,7 @@ class TransformerWeightedNetwork(mx.gluon.HybridBlock):
         raise NotImplementedError
 
 
-class TransformerWeightedTrainingNetwork(TransformerWeightedNetwork):
+class TransformerWeightedFullLossTrainingNetwork(TransformerWeightedFullLossNetwork):
     # noinspection PyMethodOverriding,PyPep8Naming
     def hybrid_forward(
         self,
@@ -298,8 +298,17 @@ class TransformerWeightedTrainingNetwork(TransformerWeightedNetwork):
             self.upper_triangular_mask(F, self.prediction_length),
         )
 
+        #concat all targets
+        all_output = F.concat(
+                enc_out,
+                dec_output,
+                dim=1
+                )
+
+
         # compute loss
-        distr_args = self.proj_dist_args(dec_output)
+        #distr_args = self.proj_dist_args(dec_output)
+        distr_args = self.proj_dist_args(all_output)
         distr = self.distr_output.distribution(distr_args, scale=scale)
 
         # original loss
@@ -318,8 +327,8 @@ class TransformerWeightedTrainingNetwork(TransformerWeightedNetwork):
         )
 
         # (batch_size, seq_len)
-        #loss = distr.loss(target)
-        loss = distr.loss(future_target)
+        loss = distr.loss(target)
+        #loss = distr.loss(future_target)
 
         ## (batch_size, seq_len, *target_shape)
         #observed_values = F.concat(
@@ -348,7 +357,7 @@ class TransformerWeightedTrainingNetwork(TransformerWeightedNetwork):
         #import pdb; pdb.set_trace()
 
         #if _hybridized_:
-        if True:
+        if False:
             r = F.slice_axis(target, axis=1, begin=-2, end=None)
             l = F.slice_axis(target, axis=1, begin=-4, end=-2)
             w1 = F.ones_like(r)
@@ -387,7 +396,7 @@ class TransformerWeightedTrainingNetwork(TransformerWeightedNetwork):
         return loss.mean()
 
 
-class TransformerWeightedPredictionNetwork(TransformerWeightedNetwork):
+class TransformerWeightedFullLossPredictionNetwork(TransformerWeightedFullLossNetwork):
     @validated()
     def __init__(self, num_parallel_samples: int = 100, **kwargs) -> None:
         super().__init__(**kwargs)

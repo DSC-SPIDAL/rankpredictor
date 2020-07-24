@@ -38,7 +38,7 @@ def prod(xs):
     return p
 
 
-class TransformerWeightedNetwork(mx.gluon.HybridBlock):
+class TransformerFullLossNetwork(mx.gluon.HybridBlock):
     @validated()
     def __init__(
         self,
@@ -240,7 +240,7 @@ class TransformerWeightedNetwork(mx.gluon.HybridBlock):
         raise NotImplementedError
 
 
-class TransformerWeightedTrainingNetwork(TransformerWeightedNetwork):
+class TransformerFullLossTrainingNetwork(TransformerFullLossNetwork):
     # noinspection PyMethodOverriding,PyPep8Naming
     def hybrid_forward(
         self,
@@ -298,8 +298,16 @@ class TransformerWeightedTrainingNetwork(TransformerWeightedNetwork):
             self.upper_triangular_mask(F, self.prediction_length),
         )
 
+        #concat all targets
+        all_output = F.concat(
+                enc_out,
+                dec_output,
+                dim=1
+                )
+
         # compute loss
-        distr_args = self.proj_dist_args(dec_output)
+        #distr_args = self.proj_dist_args(dec_output)
+        distr_args = self.proj_dist_args(all_output)
         distr = self.distr_output.distribution(distr_args, scale=scale)
 
         # original loss
@@ -318,8 +326,8 @@ class TransformerWeightedTrainingNetwork(TransformerWeightedNetwork):
         )
 
         # (batch_size, seq_len)
-        #loss = distr.loss(target)
-        loss = distr.loss(future_target)
+        loss = distr.loss(target)
+        #loss = distr.loss(future_target)
 
         ## (batch_size, seq_len, *target_shape)
         #observed_values = F.concat(
@@ -347,47 +355,47 @@ class TransformerWeightedTrainingNetwork(TransformerWeightedNetwork):
         #print('observed shape:', observed_values.shape)
         #import pdb; pdb.set_trace()
 
-        #if _hybridized_:
-        if True:
-            r = F.slice_axis(target, axis=1, begin=-2, end=None)
-            l = F.slice_axis(target, axis=1, begin=-4, end=-2)
-            w1 = F.ones_like(r)
-            w9 = F.ones_like(r)*9
-            w = F.where(r==l, w1, w9)
+        ##if _hybridized_:
+        #if True:
+        #    r = F.slice_axis(target, axis=1, begin=-2, end=None)
+        #    l = F.slice_axis(target, axis=1, begin=-4, end=-2)
+        #    w1 = F.ones_like(r)
+        #    w9 = F.ones_like(r)*9
+        #    w = F.where(r==l, w1, w9)
 
-            loss_weights2 = w
+        #    loss_weights2 = w
 
-        else:
-            r = F.slice_axis(target, axis=1, begin=2, end=None)
-            l = F.slice_axis(target, axis=1, begin=0, end=-2)
-            w1 = F.ones_like(r)
-            w9 = F.ones_like(r)*9
-            w = F.where(r==l, w1, w9)
+        #else:
+        #    r = F.slice_axis(target, axis=1, begin=2, end=None)
+        #    l = F.slice_axis(target, axis=1, begin=0, end=-2)
+        #    w1 = F.ones_like(r)
+        #    w9 = F.ones_like(r)*9
+        #    w = F.where(r==l, w1, w9)
 
-            s = F.slice_axis(target, axis=1, begin=0, end=2)
-            z = F.ones_like(s)
-            loss_weights2 = F.concat(z, w)
+        #    s = F.slice_axis(target, axis=1, begin=0, end=2)
+        #    z = F.ones_like(s)
+        #    loss_weights2 = F.concat(z, w)
 
        
-        #loss_weights = F.where(loss_weights1==0, loss_weights1, loss_weights2)
+        ##loss_weights = F.where(loss_weights1==0, loss_weights1, loss_weights2)
 
-        #
-        weighted_loss = weighted_average(
-            F=F, x=loss, weights=loss_weights2, axis=1
-        )
+        ##
+        #weighted_loss = weighted_average(
+        #    F=F, x=loss, weights=loss_weights2, axis=1
+        #)
 
-        # need to mask possible nans and -inf
-        #loss = F.where(condition=loss_weights, x=loss, y=F.zeros_like(loss))
+        ## need to mask possible nans and -inf
+        ##loss = F.where(condition=loss_weights, x=loss, y=F.zeros_like(loss))
 
 
-        #return weighted loss of future
-        #loss = F.slice_axis(weighted_loss, axis=1, begin=-2, end=None)
-        loss = weighted_loss
+        ##return weighted loss of future
+        ##loss = F.slice_axis(weighted_loss, axis=1, begin=-2, end=None)
+        #loss = weighted_loss
 
         return loss.mean()
 
 
-class TransformerWeightedPredictionNetwork(TransformerWeightedNetwork):
+class TransformerFullLossPredictionNetwork(TransformerFullLossNetwork):
     @validated()
     def __init__(self, num_parallel_samples: int = 100, **kwargs) -> None:
         super().__init__(**kwargs)

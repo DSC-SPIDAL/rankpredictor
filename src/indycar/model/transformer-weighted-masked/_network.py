@@ -38,7 +38,7 @@ def prod(xs):
     return p
 
 
-class TransformerWeightedNetwork(mx.gluon.HybridBlock):
+class TransformerWeightedMaskedNetwork(mx.gluon.HybridBlock):
     @validated()
     def __init__(
         self,
@@ -240,7 +240,7 @@ class TransformerWeightedNetwork(mx.gluon.HybridBlock):
         raise NotImplementedError
 
 
-class TransformerWeightedTrainingNetwork(TransformerWeightedNetwork):
+class TransformerWeightedMaskedTrainingNetwork(TransformerWeightedMaskedNetwork):
     # noinspection PyMethodOverriding,PyPep8Naming
     def hybrid_forward(
         self,
@@ -387,7 +387,7 @@ class TransformerWeightedTrainingNetwork(TransformerWeightedNetwork):
         return loss.mean()
 
 
-class TransformerWeightedPredictionNetwork(TransformerWeightedNetwork):
+class TransformerWeightedMaskedPredictionNetwork(TransformerWeightedMaskedNetwork):
     @validated()
     def __init__(self, num_parallel_samples: int = 100, **kwargs) -> None:
         super().__init__(**kwargs)

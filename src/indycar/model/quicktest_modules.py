@@ -70,6 +70,9 @@ from gluonts.distribution.multivariate_gaussian import MultivariateGaussianOutpu
 from indycar.model.NaivePredictor import NaivePredictor
 from indycar.model.deeparw import DeepARWeightEstimator
 from indycar.model.transformerw import TransformerWeightedEstimator
+from indycar.model.transformerf import TransformerFullLossEstimator
+from indycar.model.transformerwf import TransformerWeightedFullLossEstimator
+from indycar.model.transformerwfm import TransformerWeightedFullLossMaskedEstimator
 
 #import indycar.model.stint_simulator_shortterm_pitmodel as stint
 import indycar.model.quicktest_simulator as stint
@@ -1341,6 +1344,116 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                                 num_batches_per_epoch=100
                                )
                 )
+    elif model == 'TransformerWF-Oracle':
+
+        if use_feat_static:
+            estimator = TransformerWeightedFullLossEstimator(
+                prediction_length=prediction_length,
+                context_length= context_length,
+                use_feat_static_cat=use_feat_static,
+                cardinality=cardinality,
+                use_feat_dynamic_real=True,
+                distr_output = distr_output,
+                freq=freq,
+                trainer=Trainer(ctx=ctx, 
+                                batch_size = batch_size,
+                                epochs=epochs, 
+                                learning_rate=1e-3, 
+                                #hybridize=False,
+                                num_batches_per_epoch=100
+                               )
+                )
+        else:
+            estimator = TransformerWeightedFullLossEstimator(
+                prediction_length=prediction_length,
+                context_length= context_length,
+                use_feat_static_cat=use_feat_static,
+                #cardinality=cardinality,
+                use_feat_dynamic_real=True,
+                distr_output = distr_output,
+                freq=freq,
+                trainer=Trainer(ctx=ctx, 
+                                batch_size = batch_size,
+                                epochs=epochs, 
+                                learning_rate=1e-3, 
+                                #hybridize=False,
+                                num_batches_per_epoch=100
+                               )
+                )
+    elif model == 'TransformerWFM-Oracle':
+
+        if use_feat_static:
+            estimator = TransformerWeightedFullLossMaskedEstimator(
+                prediction_length=prediction_length,
+                context_length= context_length,
+                use_feat_static_cat=use_feat_static,
+                cardinality=cardinality,
+                use_feat_dynamic_real=True,
+                distr_output = distr_output,
+                freq=freq,
+                trainer=Trainer(ctx=ctx, 
+                                batch_size = batch_size,
+                                epochs=epochs, 
+                                learning_rate=1e-3, 
+                                #hybridize=False,
+                                num_batches_per_epoch=100
+                               )
+                )
+        else:
+            estimator = TransformerWeightedFullLossMaskedEstimator(
+                prediction_length=prediction_length,
+                context_length= context_length,
+                use_feat_static_cat=use_feat_static,
+                #cardinality=cardinality,
+                use_feat_dynamic_real=True,
+                distr_output = distr_output,
+                freq=freq,
+                trainer=Trainer(ctx=ctx, 
+                                batch_size = batch_size,
+                                epochs=epochs, 
+                                learning_rate=1e-3, 
+                                #hybridize=False,
+                                num_batches_per_epoch=100
+                               )
+                )
+    
+    elif model == 'TransformerF-Oracle':
+
+        if use_feat_static:
+            estimator = TransformerFullLossEstimator(
+                prediction_length=prediction_length,
+                context_length= context_length,
+                use_feat_static_cat=use_feat_static,
+                cardinality=cardinality,
+                use_feat_dynamic_real=True,
+                distr_output = distr_output,
+                freq=freq,
+                trainer=Trainer(ctx=ctx, 
+                                batch_size = batch_size,
+                                epochs=epochs, 
+                                learning_rate=1e-3, 
+                                #hybridize=False,
+                                num_batches_per_epoch=100
+                               )
+                )
+        else:
+            estimator = TransformerFullLossEstimator(
+                prediction_length=prediction_length,
+                context_length= context_length,
+                use_feat_static_cat=use_feat_static,
+                #cardinality=cardinality,
+                use_feat_dynamic_real=True,
+                distr_output = distr_output,
+                freq=freq,
+                trainer=Trainer(ctx=ctx, 
+                                batch_size = batch_size,
+                                epochs=epochs, 
+                                learning_rate=1e-3, 
+                                #hybridize=False,
+                                num_batches_per_epoch=100
+                               )
+                )
+            
             
     elif model == 'deepAR-multi':
         estimator = DeepAREstimator(
