@@ -26,6 +26,7 @@ from gluonts.model.common import Tensor
 from gluonts.model.transformer.trans_encoder import TransformerEncoder
 from gluonts.model.transformer.trans_decoder import TransformerDecoder
 
+from gluonts.support.util import weighted_average
 
 LARGE_NEGATIVE_VALUE = -99999999
 
@@ -317,26 +318,27 @@ class TransformerWeightedTrainingNetwork(TransformerWeightedNetwork):
         )
 
         # (batch_size, seq_len)
-        loss = distr.loss(target)
+        #loss = distr.loss(target)
+        loss = distr.loss(future_target)
 
-        # (batch_size, seq_len, *target_shape)
-        observed_values = F.concat(
-            past_observed_values.slice_axis(
-                axis=1,
-                begin=self.history_length - self.context_length,
-                end=self.history_length,
-            ),
-            future_observed_values,
-            dim=1,
-        )
+        ## (batch_size, seq_len, *target_shape)
+        #observed_values = F.concat(
+        #    past_observed_values.slice_axis(
+        #        axis=1,
+        #        begin=self.history_length - self.context_length,
+        #        end=self.history_length,
+        #    ),
+        #    future_observed_values,
+        #    dim=1,
+        #)
 
-        # mask the loss at one time step iff one or more observations is missing in the target dimensions
-        # (batch_size, seq_len)
-        loss_weights1 = (
-            observed_values
-            if (len(self.target_shape) == 0)
-            else observed_values.min(axis=-1, keepdims=False)
-        )
+        ## mask the loss at one time step iff one or more observations is missing in the target dimensions
+        ## (batch_size, seq_len)
+        #loss_weights1 = (
+        #    observed_values
+        #    if (len(self.target_shape) == 0)
+        #    else observed_values.min(axis=-1, keepdims=False)
+        #)
 
         # deal with imbalance problem
         # set higher weight for loss at time step when target changes
@@ -347,6 +349,15 @@ class TransformerWeightedTrainingNetwork(TransformerWeightedNetwork):
 
         #if _hybridized_:
         if True:
+            r = F.slice_axis(target, axis=1, begin=-2, end=None)
+            l = F.slice_axis(target, axis=1, begin=-4, end=-2)
+            w1 = F.ones_like(r)
+            w9 = F.ones_like(r)*9
+            w = F.where(r==l, w1, w9)
+
+            loss_weights2 = w
+
+        else:
             r = F.slice_axis(target, axis=1, begin=2, end=None)
             l = F.slice_axis(target, axis=1, begin=0, end=-2)
             w1 = F.ones_like(r)
@@ -357,26 +368,20 @@ class TransformerWeightedTrainingNetwork(TransformerWeightedNetwork):
             z = F.ones_like(s)
             loss_weights2 = F.concat(z, w)
 
-        else:
-            c = target[:,2:] - target[:,:-2]
-            w1 = F.ones_like(c)
-            w9 = F.ones_like(c) * 9
-            loss_weights2 = F.ones_like(target)
-            loss_weights2[:,2:] = F.where(c==0, w1, w9)
-        
-        loss_weights = F.where(loss_weights1==0, loss_weights1, loss_weights2)
+       
+        #loss_weights = F.where(loss_weights1==0, loss_weights1, loss_weights2)
 
         #
         weighted_loss = weighted_average(
-            F=F, x=loss, weights=loss_weights, axis=1
+            F=F, x=loss, weights=loss_weights2, axis=1
         )
 
         # need to mask possible nans and -inf
-        loss = F.where(condition=loss_weights, x=loss, y=F.zeros_like(loss))
+        #loss = F.where(condition=loss_weights, x=loss, y=F.zeros_like(loss))
 
 
         #return weighted loss of future
-        loss = F.slice_axis(weighted_loss, axis=1, begin=-2, end=None)
+        #loss = F.slice_axis(weighted_loss, axis=1, begin=-2, end=None)
 
         return loss.mean()
 

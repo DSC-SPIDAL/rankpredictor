@@ -45,7 +45,7 @@ from gluonts.transform import (
 )
 
 # Relative imports
-from gluonts.model.transformer._network import (
+from ._network import (
     TransformerWeightedPredictionNetwork,
     TransformerWeightedTrainingNetwork,
 )

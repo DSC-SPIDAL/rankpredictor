@@ -737,20 +737,7 @@ def load_model(prediction_length, model_name,trainid,epochs=1000, exproot='../mo
         rootdir = f'{exproot}/{_dataset_id}/{_task_id}-{trainid}/'
 
         # deepAR-Oracle
-        if model_name == 'curtrack':
-            model=f'deepAR-Oracle-{_task_id}-curtrack-indy-f1min-t{prediction_length}-e1000-r1_curtrack_t{prediction_length}'
-            modeldir = rootdir + model
-            print(f'predicting model={model_name}, plen={prediction_length}')
-            predictor =  Predictor.deserialize(Path(modeldir))
-            print(f'loading model...done!, ctx:{predictor.ctx}')
-
-        elif model_name == 'zerotrack':
-            model=f'deepAR-Oracle-{_task_id}-nolap-zerotrack-indy-f1min-t{prediction_length}-e1000-r1_zerotrack_t{prediction_length}'
-            modeldir = rootdir + model
-            print(f'predicting model={model_name}, plen={prediction_length}')
-            predictor =  Predictor.deserialize(Path(modeldir))
-            print(f'loading model...done!, ctx:{predictor.ctx}')
-        elif model_name == 'deepAR-Oracle' or model_name == 'deepAR-MLP':
+        if model_name == 'deepAR-Oracle' or model_name == 'deepAR-MLP':
             model=f'deepAR-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_oracle_t{prediction_length}'
             modeldir = rootdir + model
             print(f'predicting model={model_name}, plen={prediction_length}')
@@ -758,20 +745,13 @@ def load_model(prediction_length, model_name,trainid,epochs=1000, exproot='../mo
             print(f'loading model...done!, ctx:{predictor.ctx}')
             
         #deeparw-oracle
-        elif model_name == 'weighted-oracle':
+        elif model_name == 'weighted-oracle' or model_name == 'deepARW-Oracle' or model_name == 'deepARW-MLP':
             model=f'deepARW-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_oracle_t{prediction_length}'
             modeldir = rootdir + model
             print(f'predicting model={model_name}, plen={prediction_length}')
             predictor =  Predictor.deserialize(Path(modeldir))
             print(f'loading model...done!, ctx:{predictor.ctx}')
-            
-        # deepAR-Oracle
         elif model_name == 'oracle' or (model_name.find('pitmodel') == 0):
-            #
-            # debug for weighted model
-            #
-
-            #model=f'deepARW-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_oracle_t{prediction_length}'
             model=f'deepARW-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e{epochs}-r1_oracle_t{prediction_length}'
             modeldir = rootdir + model
             print(f'predicting model={model_name}, plen={prediction_length}')
@@ -800,20 +780,14 @@ def load_model(prediction_length, model_name,trainid,epochs=1000, exproot='../mo
             predictor =  Predictor.deserialize(Path(modeldir))
             print(f'loading model...{model}...done!, ctx:{predictor.ctx}')
 
-        # deepAR-Oracle
-        elif model_name == 'oracle-laponly':
-            model=f'deepAR-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_oracle-laponly_t{prediction_length}'
+        elif model_name == 'TransformerW-MLP' or model_name == 'TransformerW-Oracle':
+            model=f'TransformerW-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e{epochs}-r1_oracle_t{prediction_length}'
             modeldir = rootdir + model
             print(f'predicting model={model_name}, plen={prediction_length}')
             predictor =  Predictor.deserialize(Path(modeldir))
-            print(f'loading model...done!, ctx:{predictor.ctx}')
-        # deepAR-Oracle
-        elif model_name == 'oracle-trackonly':
-            model=f'deepAR-Oracle-{_task_id}-all-indy-f1min-t{prediction_length}-e1000-r1_oracle-trackonly_t{prediction_length}'
-            modeldir = rootdir + model
-            print(f'predicting model={model_name}, plen={prediction_length}')
-            predictor =  Predictor.deserialize(Path(modeldir))
-            print(f'loading model...done!, ctx:{predictor.ctx}')
+            print(f'loading model...{model}...done!, ctx:{predictor.ctx}')
+
+
         # deepAR
         elif model_name == 'deepAR' or model_name == 'standard':
             model=f'deepAR-{_task_id}-all-indy-f1min-t{prediction_length}-e{epochs}-r1_oracle_t{prediction_length}'

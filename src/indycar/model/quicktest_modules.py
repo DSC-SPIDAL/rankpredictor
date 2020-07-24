@@ -69,6 +69,7 @@ from gluonts.distribution.multivariate_gaussian import MultivariateGaussianOutpu
 
 from indycar.model.NaivePredictor import NaivePredictor
 from indycar.model.deeparw import DeepARWeightEstimator
+from indycar.model.transformerw import TransformerWeightedEstimator
 
 #import indycar.model.stint_simulator_shortterm_pitmodel as stint
 import indycar.model.quicktest_simulator as stint
@@ -1289,6 +1290,42 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 )
         else:
             estimator = TransformerEstimator(
+                prediction_length=prediction_length,
+                context_length= context_length,
+                use_feat_static_cat=use_feat_static,
+                #cardinality=cardinality,
+                use_feat_dynamic_real=True,
+                distr_output = distr_output,
+                freq=freq,
+                trainer=Trainer(ctx=ctx, 
+                                batch_size = batch_size,
+                                epochs=epochs, 
+                                learning_rate=1e-3, 
+                                #hybridize=False,
+                                num_batches_per_epoch=100
+                               )
+                )
+    elif model == 'TransformerW-Oracle':
+
+        if use_feat_static:
+            estimator = TransformerWeightedEstimator(
+                prediction_length=prediction_length,
+                context_length= context_length,
+                use_feat_static_cat=use_feat_static,
+                cardinality=cardinality,
+                use_feat_dynamic_real=True,
+                distr_output = distr_output,
+                freq=freq,
+                trainer=Trainer(ctx=ctx, 
+                                batch_size = batch_size,
+                                epochs=epochs, 
+                                learning_rate=1e-3, 
+                                #hybridize=False,
+                                num_batches_per_epoch=100
+                               )
+                )
+        else:
+            estimator = TransformerWeightedEstimator(
                 prediction_length=prediction_length,
                 context_length= context_length,
                 use_feat_static_cat=use_feat_static,
