@@ -19,8 +19,8 @@ python RankNet-QuickTest-Slim.py "$@" | tee $logfile
 }
 
 
-trainmodel="TransformerWF-Oracle"
-testmodel="TransformerWF-MLP"
+trainmodel="TransformerWFM-Oracle"
+testmodel="TransformerWFM-MLP"
 
 for test_event in ${testevents[*]}; do
 
