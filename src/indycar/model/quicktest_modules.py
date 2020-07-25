@@ -721,10 +721,11 @@ def prepare_laptimedata(laptime_data,
     new_data = []
     for _data in _laptime_data:
         #if events[_data[0]] == test_event:
+        test_mode = False
         if _data[0] == test_eventid:
             test_mode = True
-        elif _data[0] in train_events:
-            test_mode = False
+        #elif _data[0] in train_events:
+        #    test_mode = False
         #else:
         #    #skip this event
         #    print('skip this event:', _data[0])
@@ -2986,8 +2987,11 @@ def df2samples_ex(dfall, samplecnt=100,errlist=[]):
                 continue
             
             dfrec = dfall[(dfall['carno']==carno) & (dfall['startlap']==startlap)]
-            
-            curlap = int(dfrec.startlap.values[0])
+ 
+            # save to the endlap
+            #curlap = int(dfrec.startlap.values[0])
+            curlap = int(dfrec.endlap.values[0])
+
             target = dfrec.endrank.values[0]
             forecast = dfrec.pred_endrank.to_numpy()
             

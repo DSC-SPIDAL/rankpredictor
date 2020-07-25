@@ -187,7 +187,7 @@ else:
 dataroot = opt.dataroot
 
 #discard year
-#year = _test_event
+year = _test_event
 
 if testmodel == 'pitmodel':
     testmodel = 'pitmodel%s'%(_pitmodel_bias if _pitmodel_bias!=0 else '')
@@ -254,7 +254,7 @@ experimentid = f'{weightstr[_use_weighted_model]}-{inlapstr[_inlap_status]}-{cur
 #
 #
 outputRoot = f"{WorkRootDir}/{experimentid}/"
-version = f'IndyCar-d{len(events)}'
+version = f'IndyCar-d{len(events)}-endlap'
 
 # standard output file names
 LAPTIME_DATASET = f'{outputRoot}/laptime_rank_timediff_pit-oracle-{dbid}.pickle' 
@@ -581,15 +581,16 @@ if _skip_overwrite and os.path.exists(EVALUATION_RESULT_DF):
     oracle_eval_result = pd.read_csv(EVALUATION_RESULT_DF)
 
 else:    
+    # get pit laps, pit-covered-laps
+    # pitdata[event] = [pitlaps, pitcoveredlaps]
+    with open('pitcoveredlaps-alldata-g1.pickle', 'rb') as f:
+        # The protocol version used is detected automatically, so we do not
+        # have to specify it.
+        pitdata = pickle.load(f, encoding='latin1') 
+
+
     ##-------------------------------------------------------------------------------
     if _forecast_mode == 'shortterm':
-
-        # get pit laps, pit-covered-laps
-        # pitdata[event] = [pitlaps, pitcoveredlaps]
-        with open('pitcoveredlaps-alldata-g1.pickle', 'rb') as f:
-            # The protocol version used is detected automatically, so we do not
-            # have to specify it.
-            pitdata = pickle.load(f, encoding='latin1') 
 
         #
         # Model,SignAcc,MAE,50-Risk,90-Risk
@@ -689,13 +690,6 @@ else:
 
             retdata.append([_test_event,models[clf],configname,'all', accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
             
-        #ml models -oracle
-        #for clf in ['rf','svr_lin','xgb']:
-        #    print('year:',year,'clf:',clf)
-        #    dfout, accret = eval_sync(preddf_oracle[year][clf],errlist[year])
-        #    fsamples, ftss = df2samples(dfout)
-        #    _, prisk_vals = prisk_direct_bysamples(fsamples, ftss)
-        #    retdata.append([year,models[clf]+'-Oracle',configname,'all',accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
 
         dfout, accret = eval_sync(ranknetdf[year][f'{testmodel}_mean'], errlist[year],force2int=True)
         #fsamples, ftss = df2samples(dfout)
@@ -703,12 +697,68 @@ else:
         _, prisk_vals = prisk_direct_bysamples(fsamples, ftss)
         retdata.append([_test_event,f'{testmodel}',configname,'all',accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
 
-        #dfout, accret = eval_sync(ranknetdf[year]['oracle_mean'], errlist[year],force2int=True)
-        ##fsamples, ftss = df2samples(dfout)
-        #fsamples, ftss = runs2samples(ranknet_ret[f'oracle-TIMEDIFF-{year}-noinlap-nopitage'],errlist[f'{year}'])
-        #_, prisk_vals = prisk_direct_bysamples(fsamples, ftss)
-        #retdata.append([year,'RankNet-Oracle',accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
 
+        # split evaluation
+        if True:
+            for laptype in ['normal','pit']:
+                # select the set
+                pitcoveredlaps = pitdata[_test_event][1]
+                normallaps = set([x for x in range(1,201)]) - pitcoveredlaps
+
+                if laptype == 'normal':
+                    sellaps = normallaps
+                    clearlaps = pitcoveredlaps
+                else:
+                    sellaps = pitcoveredlaps
+                    clearlaps = normallaps
+
+
+                # pitcoveredlaps start idx = 1
+                #startlaps = [x-plen-1 for x in sellaps]
+                startlaps = [x-1 for x in sellaps]
+                #sellapidx = np.array([x-1 for x in sellaps])
+                clearidx = np.array([x-1 for x in clearlaps])
+                print('sellaps:', len(sellaps), 'clearlaps:',len(clearlaps))
+
+                # evaluation start
+                for clf in ['currank','rf','svr_lin','xgb']:
+                    dfout, accret = eval_sync(preddf[_test_event][clf],errlist[year])
+
+                    dfout = dfout[dfout['endlap'].isin(startlaps)]
+                    accret = stint.get_evalret(dfout)[0]
+
+                    fsamples, ftss = df2samples_ex(dfout)
+
+                    #fsamples, ftss = clear_samples(fsamples, ftss, clearidx)
+
+                    _, prisk_vals = prisk_direct_bysamples(fsamples, ftss)
+
+
+                    #dfout = dfout[dfout['endlap'].isin(startlaps)]
+                    #accret = stint.get_evalret(dfout)[0]
+
+                    retdata.append([_test_event,models[clf],configname,laptype, accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
+                    
+
+                dfout, accret = eval_sync(ranknetdf[year][f'{testmodel}_mean'], errlist[year],force2int=True)
+                dfout = dfout[dfout['endlap'].isin(startlaps)]
+                accret = stint.get_evalret(dfout)[0]
+
+
+                #fsamples, ftss = df2samples(dfout)
+                fsamples, ftss = runs2samples(ranknet_ret[mid],errlist[f'{year}'])
+
+                #fsamples, ftss = clear_samples(fsamples, ftss, clearidx)
+
+                _, prisk_vals = prisk_direct_bysamples(fsamples, ftss)
+
+                #dfout = dfout[dfout['endlap'].isin(startlaps)]
+                #accret = stint.get_evalret(dfout)[0]
+
+                retdata.append([_test_event,f'{testmodel}',configname,laptype,accret[0], accret[1], prisk_vals[1], prisk_vals[2]])
+
+
+    # end of evaluation
     oracle_eval_result = pd.DataFrame(data=retdata, columns=cols)
     if _savedata:
         oracle_eval_result.to_csv(EVALUATION_RESULT_DF)    
