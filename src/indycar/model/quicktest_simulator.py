@@ -831,7 +831,7 @@ def load_model(prediction_length, model_name,trainid,epochs=1000, exproot='../mo
         elif model_name == 'arima':
             print(f'predicting model={model_name}, plen={prediction_length}')
             predictor =  RForecastPredictor(method_name='arima',freq= freq, 
-                                            prediction_length = prediction_length,trunc_length=60)
+                                            prediction_length = prediction_length,trunc_length=gvar.context_length)
         else:
             print(f'error: model {model_name} not support yet!')
 

@@ -2740,7 +2740,27 @@ def plotallcars(alldata, outputfile, drawid = 0,
     fig.tight_layout()
     fig.savefig(outputfile + '.pdf')      
     
+
+def get_racestatus_all(rankdata):
+    df12 = rankdata
     
+    data = df12[['completed_laps','rank','last_laptime','time_behind_leader']].values
+    pitstop = df12[['lap_status']].values
+    caution = df12[['track_status']].values
+    pitstop = np.array([1 if x=='P' else 0 for x in pitstop])
+    caution = np.array([1 if x=='Y' else 0 for x in caution])
+    
+    pitidx = np.where(pitstop == 1)
+    pits = data[pitidx]
+    pitlaps = sorted(set(list(pits[:,0].astype(int))))
+    
+    cautionidx = np.where(caution == 1)
+    cautions = data[cautionidx]
+    cautionlaps = sorted(set(list(cautions[:,0].astype(int))))
+
+    return pitlaps, cautionlaps
+
+
 def get_racestatus(carno, rankdata):
     df12 = rankdata[rankdata['car_number']==carno]
     #

@@ -588,6 +588,9 @@ else:
         # have to specify it.
         pitdata = pickle.load(f, encoding='latin1') 
 
+    with open(STAGE_DATASET, 'rb') as f:
+        stagedata = pickle.load(f, encoding='latin1') 
+        _alldata, rankdata, _acldata, _flagdata = stagedata[_test_event]
 
     ##-------------------------------------------------------------------------------
     if _forecast_mode == 'shortterm':
@@ -619,7 +622,8 @@ else:
         for laptype in ['normal','pit']:
             # select the set
             pitcoveredlaps = pitdata[_test_event][1]
-            normallaps = set([x for x in range(1,201)]) - pitcoveredlaps
+            gvar.maxlap = get_event_info(_test_event)[2]
+            normallaps = set([x for x in range(1, gvar.maxlap + 1)]) - pitcoveredlaps
 
             if laptype == 'normal':
                 sellaps = normallaps
@@ -675,6 +679,8 @@ else:
         errlist = {}
         errcnt, errlist[year] = cmp_df(ranknetdf[year][f'{testmodel}_mean'], preddf[_test_event]['lasso'])
         
+        pitlaps, cautionlaps = get_racestatus_all(rankdata)
+
         retdata = []
         #
         # Model,SignAcc,MAE,50-Risk,90-Risk
@@ -700,23 +706,20 @@ else:
 
         # split evaluation
         if True:
-            for laptype in ['normal','pit']:
+            for laptype in ['normalpit','cautionpit']:
                 # select the set
-                pitcoveredlaps = pitdata[_test_event][1]
-                normallaps = set([x for x in range(1,201)]) - pitcoveredlaps
+                gvar.maxlap = get_event_info(_test_event)[2]
+                normallaps = set([x for x in range(1, gvar.maxlap + 1)]) - set(cautionlaps)
 
-                if laptype == 'normal':
+                if laptype == 'normalpit':
                     sellaps = normallaps
-                    clearlaps = pitcoveredlaps
+                    clearlaps = cautionlaps
                 else:
-                    sellaps = pitcoveredlaps
+                    sellaps = cautionlaps
                     clearlaps = normallaps
 
-
                 # pitcoveredlaps start idx = 1
-                #startlaps = [x-plen-1 for x in sellaps]
                 startlaps = [x-1 for x in sellaps]
-                #sellapidx = np.array([x-1 for x in sellaps])
                 clearidx = np.array([x-1 for x in clearlaps])
                 print('sellaps:', len(sellaps), 'clearlaps:',len(clearlaps))
 
@@ -724,7 +727,14 @@ else:
                 for clf in ['currank','rf','svr_lin','xgb']:
                     dfout, accret = eval_sync(preddf[_test_event][clf],errlist[year])
 
-                    dfout = dfout[dfout['endlap'].isin(startlaps)]
+                    #debug
+                    if clf == 'currank':
+                        print('currank min startlap:', np.min(dfout.startlap.values))
+                        print('currank startlaps:', dfout.startlap.values)
+                        print('currank endlaps:', dfout.endlap.values)
+
+                    #dfout = dfout[dfout['endlap'].isin(startlaps)]
+                    dfout = dfout[dfout['startlap'].isin(startlaps)]
                     accret = stint.get_evalret(dfout)[0]
 
                     fsamples, ftss = df2samples_ex(dfout)
@@ -741,14 +751,28 @@ else:
                     
 
                 dfout, accret = eval_sync(ranknetdf[year][f'{testmodel}_mean'], errlist[year],force2int=True)
-                dfout = dfout[dfout['endlap'].isin(startlaps)]
+                
+                print('ranknet min startlap:', np.min(dfout.startlap.values))
+                print('ranknet startlaps:', dfout.startlap.values)
+                print('ranknet endlaps:', sorted(set(list((dfout.endlap.values)))))
+                print('sel laps::', startlaps)
+                print('clear laps::', clearidx)
+                print('cautionlaps:', cautionlaps)
+
+                dfoutx = dfout[dfout['startlap'].isin(clearidx)]
+                #dfoutx = dfout[dfout['endlap'].isin(clearidx)]
+                print('matched cleared endlaps::', sorted(set(list((dfoutx.endlap.values)))))
+               
+                dfout = dfout[dfout['startlap'].isin(startlaps)]
+                #dfout = dfout[dfout['endlap'].isin(startlaps)]
+                print('matched endlaps::', sorted(set(list((dfout.endlap.values)))))
                 accret = stint.get_evalret(dfout)[0]
 
 
                 #fsamples, ftss = df2samples(dfout)
                 fsamples, ftss = runs2samples(ranknet_ret[mid],errlist[f'{year}'])
 
-                #fsamples, ftss = clear_samples(fsamples, ftss, clearidx)
+                fsamples, ftss = clear_samples(fsamples, ftss, clearidx)
 
                 _, prisk_vals = prisk_direct_bysamples(fsamples, ftss)
 
