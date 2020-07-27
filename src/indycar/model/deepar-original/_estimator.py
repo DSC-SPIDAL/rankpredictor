@@ -46,10 +46,10 @@ from gluonts.transform import (
 )
 
 # Relative imports
-from ._network import DeepARWeightPredictionNetwork, DeepARWeightTrainingNetwork
+from ._network import DeepARPredictionNetwork, DeepARTrainingNetwork
 
 
-class DeepARWeightEstimator(GluonEstimator):
+class DeepAREstimator(GluonEstimator):
     """
     Construct a DeepAR estimator.
 
@@ -241,7 +241,6 @@ class DeepARWeightEstimator(GluonEstimator):
                 AddObservedValuesIndicator(
                     target_field=FieldName.TARGET,
                     output_field=FieldName.OBSERVED_VALUES,
-                    #dummy_value=self.distr_output.value_in_support,
                     dtype=self.dtype,
                 ),
                 AddTimeFeatures(
@@ -279,13 +278,12 @@ class DeepARWeightEstimator(GluonEstimator):
                         FieldName.FEAT_TIME,
                         FieldName.OBSERVED_VALUES,
                     ],
-                    #dummy_value=self.distr_output.value_in_support,
                 ),
             ]
         )
 
-    def create_training_network(self) -> DeepARWeightTrainingNetwork:
-        return DeepARWeightTrainingNetwork(
+    def create_training_network(self) -> DeepARTrainingNetwork:
+        return DeepARTrainingNetwork(
             num_layers=self.num_layers,
             num_cells=self.num_cells,
             cell_type=self.cell_type,
@@ -304,7 +302,7 @@ class DeepARWeightEstimator(GluonEstimator):
     def create_predictor(
         self, transformation: Transformation, trained_network: HybridBlock
     ) -> Predictor:
-        prediction_network = DeepARWeightPredictionNetwork(
+        prediction_network = DeepARPredictionNetwork(
             num_parallel_samples=self.num_parallel_samples,
             num_layers=self.num_layers,
             num_cells=self.num_cells,

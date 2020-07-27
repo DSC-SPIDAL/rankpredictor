@@ -1472,7 +1472,25 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                            ),
             distr_output=MultivariateGaussianOutput(dim=target_dim),
         )
+    elif model == 'deepARW-multi':
+        estimator = DeepARWeightEstimator(
+            prediction_length=prediction_length,
+            context_length= context_length,
+            use_feat_static_cat=use_feat_static,
+            #cardinality=cardinality,
+            use_feat_dynamic_real=False,
+            freq=freq,
+            trainer=Trainer(ctx=ctx, 
+                            batch_size = batch_size,
+                            epochs=epochs, 
+                            learning_rate=1e-3, 
+                            num_batches_per_epoch=100
+                           ),
+            distr_output=MultivariateGaussianOutput(dim=target_dim),
+        )
 
+
+ 
 
     elif model == 'simpleFF':
         estimator = SimpleFeedForwardEstimator(

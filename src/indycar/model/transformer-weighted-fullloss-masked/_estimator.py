@@ -179,6 +179,7 @@ class TransformerWeightedFullLossMaskedEstimator(GluonEstimator):
             lags_seq
             if lags_seq is not None
             else get_lags_for_frequency(freq_str=freq)
+            #else get_lags_for_frequency(freq_str=freq, num_lags=1)
         )
         self.time_features = (
             time_features
