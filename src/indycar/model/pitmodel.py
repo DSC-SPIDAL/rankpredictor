@@ -28,6 +28,7 @@ from gluonts.distribution.student_t import StudentTOutput
 from gluonts.model.forecast import SampleForecast
 
 from indycar.model.mlp import MLPEstimator
+import errno
 
 class PitModelBase():
 
@@ -40,9 +41,14 @@ class PitModelBase():
             self.load_model(modelfile)
 
     def load_model(self, modelfile):
+        if not os.path.exists(modelfile):
+            print('error loading pitmode at', modelfile)
+            raise FileNotFoundError(
+                        errno.ENOENT, os.strerror(errno.ENOENT), modelfile)
+
         with open(modelfile, 'rb') as f:
             self.name, self.model = pickle.load(f, encoding='latin1')
-            print(f'init model:{self.name}')
+            print(f'init model:{self.name}, #key:', len(self.model))
 
     def save_keys(self, keyfile):
         with open(keyfile, 'wb') as f:

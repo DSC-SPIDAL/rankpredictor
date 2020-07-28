@@ -51,6 +51,7 @@ register_matplotlib_converters()
 from pathlib import Path
 import configparser
 
+from gluonts.model.deepar import DeepAREstimator
 from gluonts.model.deep_factor import DeepFactorEstimator
 from gluonts.model.deepstate import DeepStateEstimator
 from gluonts.trainer import Trainer
@@ -68,7 +69,6 @@ from gluonts.distribution.multivariate_gaussian import MultivariateGaussianOutpu
 
 from indycar.model.NaivePredictor import NaivePredictor
 from indycar.model.deeparw import DeepARWeightEstimator
-from indycar.model.deepar import DeepAREstimator
 from indycar.model.transformerw import TransformerWeightedEstimator
 from indycar.model.transformerf import TransformerFullLossEstimator
 from indycar.model.transformerwf import TransformerWeightedFullLossEstimator
@@ -253,9 +253,6 @@ def get_lapdata(acldata):
             ['car_number','completed_laps','time_diff','rank',
              'track_status', 'lap_status','elapsed_time']].values
         
-        if len(this_lap) == 0:
-            continue
-
         min_elapsed_time = np.nanmin(this_lap[:,COL_ELAPSED_TIME].astype(np.float))
         #print(f'lap:{lap}, min_elapsed_time:{min_elapsed_time}')
         
@@ -317,9 +314,7 @@ def get_laptime_dataset(stagedata, inlap_status = 0):
         carlist = set(acldata['car_number'])
         laplist = set(acldata['completed_laps'])
         totalcars = len(carlist)
-        #totallaps = len(laplist)
-        totallaps = max(laplist) + 1
-        print('totallaps:', event, totallaps, len(laplist))
+        totallaps = len(laplist)
         
 
 
@@ -1148,7 +1143,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=False,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1165,7 +1159,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=False,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1185,7 +1178,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=True,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1202,7 +1194,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=True,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1210,7 +1201,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                                 num_batches_per_epoch=100
                                )
                 )
-    elif model == 'deepARW-Oracle' or model == 'RankNet':
+    elif model == 'deepARW-Oracle':
 
         if use_feat_static:
             estimator = DeepARWeightEstimator(
@@ -1221,7 +1212,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=True,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1239,7 +1229,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=True,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1259,7 +1248,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=False,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1277,7 +1265,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=False,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1297,7 +1284,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=True,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1315,7 +1301,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=True,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1335,7 +1320,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=True,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1353,7 +1337,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=True,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1362,7 +1345,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                                 num_batches_per_epoch=100
                                )
                 )
-    elif model == 'TransformerWF-Oracle' or model == 'RankNet-Transformer':
+    elif model == 'TransformerWF-Oracle':
 
         if use_feat_static:
             estimator = TransformerWeightedFullLossEstimator(
@@ -1373,7 +1356,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=True,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1391,7 +1373,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=True,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1411,7 +1392,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=True,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1429,7 +1409,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=True,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1450,7 +1429,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=True,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1468,7 +1446,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 use_feat_dynamic_real=True,
                 distr_output = distr_output,
                 freq=freq,
-                lags_seq=gvar._lags_seq,
                 trainer=Trainer(ctx=ctx, 
                                 batch_size = batch_size,
                                 epochs=epochs, 
@@ -1487,7 +1464,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
             #cardinality=cardinality,
             use_feat_dynamic_real=False,
             freq=freq,
-            lags_seq=gvar._lags_seq,
             trainer=Trainer(ctx=ctx, 
                             batch_size = batch_size,
                             epochs=epochs, 
@@ -1496,7 +1472,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                            ),
             distr_output=MultivariateGaussianOutput(dim=target_dim),
         )
-    elif model == 'deepARW-multi' or model == 'RankNet-Joint':
+    elif model == 'deepARW-multi':
         estimator = DeepARWeightEstimator(
             prediction_length=prediction_length,
             context_length= context_length,
@@ -1504,7 +1480,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
             #cardinality=cardinality,
             use_feat_dynamic_real=False,
             freq=freq,
-            lags_seq=gvar._lags_seq,
             trainer=Trainer(ctx=ctx, 
                             batch_size = batch_size,
                             epochs=epochs, 
@@ -1515,13 +1490,14 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
         )
 
 
+ 
+
     elif model == 'simpleFF':
         estimator = SimpleFeedForwardEstimator(
             num_hidden_dimensions=[10],
             prediction_length=prediction_length,
             context_length= context_length,
             freq=freq,
-            lags_seq=gvar._lags_seq,
             trainer=Trainer(ctx=ctx, 
                             batch_size = batch_size,
                             epochs=epochs,
@@ -1535,7 +1511,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
             prediction_length=prediction_length,
             context_length= context_length,
             freq=freq,
-            lags_seq=gvar._lags_seq,
             trainer=Trainer(ctx=ctx, 
                             batch_size = batch_size,
                             epochs=epochs, 
@@ -1549,7 +1524,6 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
             use_feat_static_cat=True,
             cardinality=cardinality,
             freq=freq,
-            lags_seq=gvar._lags_seq,
             trainer=Trainer(ctx=ctx, 
                             batch_size = batch_size,
                             epochs=epochs, 
@@ -3161,6 +3135,6 @@ def test_global():
     gvar._hi += 200
 
 def get_event_info(event):
-    #eid = event.split('-')[0]
-    return gvar._race_info[event]
+    eid = event.split('-')[0]
+    return gvar.events_info[eid]
 

@@ -42,9 +42,6 @@ use_feat_static = _use_cate_feature
 distroutput = 'student'
 batch_size = 32
 
-# using only one lags
-_lags_seq = [1]
-
 #
 # test parameters
 #
@@ -61,8 +58,6 @@ _forecast_mode = 'shortterm'
 
 events = []
 events_id ={}
-events_info = {}
-_race_info = {}
 global_carids = {}
 _train_events = []
 

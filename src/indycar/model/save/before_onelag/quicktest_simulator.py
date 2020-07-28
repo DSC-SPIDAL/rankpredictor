@@ -43,6 +43,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from gluonts.dataset.common import ListDataset
 from gluonts.dataset.util import to_pandas
 from pathlib import Path
+from gluonts.model.deepar import DeepAREstimator
 from gluonts.model.deep_factor import DeepFactorEstimator
 from gluonts.model.deepstate import DeepStateEstimator
 from gluonts.trainer import Trainer
@@ -60,8 +61,6 @@ register_matplotlib_converters()
 
 from indycar.model.pitmodel import PitModelSimple, PitModelMLP
 from indycar.model.deeparw import DeepARWeightEstimator
-#from gluonts.model.deepar import DeepAREstimator
-from indycar.model.deepar import DeepAREstimator
 import indycar.model.global_variables as gvar
 
 
@@ -2428,4 +2427,3 @@ _trim = 0
 #events_id={key:idx for idx, key in enumerate(events)}
 #dbid = f'Indy500_{years[0]}_{years[-1]}_v9_p{_inlap_status}'
 
-_lags_seq = [1]
