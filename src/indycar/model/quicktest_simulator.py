@@ -1023,12 +1023,13 @@ def sim_init():
     print('sim_init: after laptime_data, shape=', len(laptime_data), laptime_data[test_idx][2].shape)
 
 
-def update_lapstatus(startlap, pitmodel_trainevent = 'Indy500'):
+def update_lapstatus(startlap):
     """
     update the whole lapstatus data
     """
 
-    #check the test_event, the same as the training event?
+    #check the test_event, the same as the training event?a
+    pitmodel_trainevent = gvar.trainrace
     eid = _test_event.split('-')[0]
     pitscale = gvar.events_info[pitmodel_trainevent][1] *1.0 / gvar.events_info[eid][1]
 
@@ -1935,6 +1936,11 @@ def run_simulation_shortterm(predictor, prediction_length, freq,
                         test_event = _test_event,
                         train_ratio=0, context_ratio = 0.,shift_len = prediction_length)
 
+
+        #if pitlap == 124:
+        #    import pdb
+        #    pdb.set_trace()
+
         debug_print(f'update lapstatus done.')
         #run one step sim from pitlap to maxnext
         forecast, forecast_samples = sim_onestep_pred(predictor, prediction_length, freq,
@@ -1943,6 +1949,11 @@ def run_simulation_shortterm(predictor, prediction_length, freq,
                 sample_cnt = sample_cnt,
                 verbose = verbose
                 )
+
+        #pocono-2019
+        #end with nan, totallen < expected endpos
+        if not forecast:
+            break
 
         debug_print(f'simulation done: {len(forecast)}')
         # calc rank from this result

@@ -191,17 +191,8 @@ year = _test_event
 if testmodel == 'pitmodel':
     testmodel = 'pitmodel%s'%(_pitmodel_bias if _pitmodel_bias!=0 else '')
 
-#featurestr = {FEATURE_STATUS:'nopitage',FEATURE_PITAGE:'pitage',FEATURE_LEADERPITCNT:'leaderpitcnt'}
-#cur_featurestr = featurestr[_feature_mode]
-print('current configfile:', configfile)
+
 cur_featurestr = decode_feature_mode(_feature_mode)
-print('feature_mode:', _feature_mode, cur_featurestr)
-print('testmodel:', testmodel)
-print('pitmodel:', pitmodel)
-#print('year:', year)
-print('test_event:', _test_event)
-
-
 # In[4]:
 
 
@@ -246,6 +237,11 @@ _dataset_id = '%s-%s'%(inlapstr[_inlap_status], cur_featurestr)
 
 #trainrace = 'Indy500'
 _train_events = [events_id[x] for x in [f'{trainrace}-{x}' for x in ['2013','2014','2015','2016','2017']]]
+#replace TRAINRACE in pitmodel
+if pitmodel.find('TRAINRACE') > 0:
+    pitmodel = pitmodel.replace('TRAINRACE', trainrace)
+
+
 #
 # internal parameters
 #
@@ -423,7 +419,19 @@ gvar.events = events
 gvar.events_id  = events_id
 gvar.maxlap = get_event_info(_test_event)[2]
 gvar.events_info = events_info
+gvar.trainrace = trainrace
 # ### 2. make gluonts db
+
+#featurestr = {FEATURE_STATUS:'nopitage',FEATURE_PITAGE:'pitage',FEATURE_LEADERPITCNT:'leaderpitcnt'}
+#cur_featurestr = featurestr[_feature_mode]
+print('current configfile:', configfile)
+print('trainrace:', trainrace)
+print('feature_mode:', _feature_mode, cur_featurestr)
+print('trainmodel:', trainmodel)
+print('testmodel:', testmodel)
+print('pitmodel:', pitmodel)
+print('test_event:', _test_event)
+sys.stdout.flush()
 
 # In[7]:
 

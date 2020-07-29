@@ -1686,7 +1686,7 @@ def simulation(datasetid, testevent, taskid, runts, expid, predictionlen,
     for i in range(loopcnt):
         #df, full_samples, full_tss
         if forecastmode == 'shortterm':
-            ret2[i] = stint.run_simulation_shortterm(predictor, predictionlen, stint.freq, datamode=datamode)
+            ret2[i] = stint.run_simulation_shortterm(predictor, predictionlen, stint.freq, datamode=datamode, verbose=True)
         elif forecastmode == 'stint':
             ret2[i] = stint.run_simulation_pred(predictor, predictionlen, stint.freq, datamode=datamode)
         else:

@@ -65,6 +65,7 @@ events_info = {}
 _race_info = {}
 global_carids = {}
 _train_events = []
+trainrace = 'Indy500'
 
 maxlap = 200
 dbid = ''
