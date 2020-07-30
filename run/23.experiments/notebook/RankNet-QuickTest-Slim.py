@@ -83,7 +83,11 @@ parser.add_option("--pitmodel_bias", default=-1, type='int', dest="pitmodel_bias
 parser.add_option("--trainrace", default='Indy500', dest="trainrace")
 parser.add_option("--test_event", default='', dest="test_event")
 parser.add_option("--suffix", default='', dest="suffix")
-parser.add_option("--dataroot", default='test/', dest="dataroot")
+parser.add_option("--dataroot", default='data/', dest="dataroot")
+
+parser.add_option("--prediction_length", default=-1,type='int',  dest="prediction_length")
+parser.add_option("--context_length", default=-1,type='int',  dest="context_length")
+
 
 opt, args = parser.parse_args()
 print(len(args), opt.joint_train)
@@ -145,6 +149,8 @@ if configfile != '':
     use_feat_static = _use_cate_feature 
 
     #config1 = get_config()
+    train_years = config.get(section, "train_years", fallback='2013,2014,2015,2016,2017')
+    _train_years = train_years.split(',')
     
 else:
     print('Warning, please use config file')
@@ -174,6 +180,10 @@ if opt.gpuid >= 0:
     gpuid = opt.gpuid
 if opt.loopcnt > 0:
     loopcnt = opt.loopcnt
+if opt.prediction_length > 0:
+    prediction_length = opt.prediction_length
+if opt.context_length > 0:
+    context_length = opt.context_length
 if opt.pitmodel_bias >= 0:
     _pitmodel_bias = opt.pitmodel_bias
 if opt.test_event != '':
@@ -236,7 +246,8 @@ dbid = f'IndyCar_d{len(events)}_v{_featureCnt}_p{_inlap_status}'
 _dataset_id = '%s-%s'%(inlapstr[_inlap_status], cur_featurestr)
 
 #trainrace = 'Indy500'
-_train_events = [events_id[x] for x in [f'{trainrace}-{x}' for x in ['2013','2014','2015','2016','2017']]]
+#_train_events = [events_id[x] for x in [f'{trainrace}-{x}' for x in ['2013','2014','2015','2016','2017']]]
+_train_events = [events_id[x] for x in [f'{trainrace}-{x}' for x in _train_years]]
 #replace TRAINRACE in pitmodel
 if pitmodel.find('TRAINRACE') > 0:
     pitmodel = pitmodel.replace('TRAINRACE', trainrace)
@@ -259,7 +270,8 @@ experimentid = f'{weightstr[_use_weighted_model]}-{inlapstr[_inlap_status]}-{cur
 #
 #
 outputRoot = f"{WorkRootDir}/{experimentid}/"
-version = f'IndyCar-d{len(events)}-endlap'
+#version = f'IndyCar-d{len(events)}-endlap'
+version = f'IndyCar-d{trainrace}-endlap'
 
 # standard output file names
 SIMULATION_OUTFILE = f'{outputRoot}/{_test_event}/{_forecast_mode}-dfout-{trainmodel}-indy500-{dataset}-{inlapstr[_inlap_status]}-{cur_featurestr}-{testmodel}-l{loopcnt}-alldata.pickle'
@@ -426,11 +438,15 @@ gvar.trainrace = trainrace
 #cur_featurestr = featurestr[_feature_mode]
 print('current configfile:', configfile)
 print('trainrace:', trainrace)
+print('train_years:', _train_years)
+print('trainevents:', _train_events)
 print('feature_mode:', _feature_mode, cur_featurestr)
 print('trainmodel:', trainmodel)
 print('testmodel:', testmodel)
 print('pitmodel:', pitmodel)
 print('test_event:', _test_event)
+print('prediction_length:', prediction_length)
+print('context_length:', context_length)
 sys.stdout.flush()
 
 # In[7]:
@@ -645,6 +661,7 @@ else:
     #with open(STAGE_DATASET, 'rb') as f:
     #    stagedata, _race_info, _events, _events_id = pickle.load(f, encoding='latin1') 
     #    _alldata, rankdata, _acldata, _flagdata = stagedata[_test_event]
+    _alldata, rankdata, _acldata, _flagdata = stagedata[_test_event]
 
     ##-------------------------------------------------------------------------------
     if _forecast_mode == 'shortterm':

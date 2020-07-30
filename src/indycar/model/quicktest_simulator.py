@@ -1278,7 +1278,7 @@ def sim_onestep_pred(predictor, prediction_length, freq,
 
             #ipdb.set_trace()
             if verbose:
-                print(f'after ====event:{gvar.events[_data[0]]}, prediction_len={prediction_length},train_len={train_len}, max_len={np.max(ts_len)}, min_len={np.min(ts_len)}, cars={_data[2].shape[0]}')
+                print(f'{endpos} {endlap} {_data[2].shape} ====event:{gvar.events[_data[0]]}, prediction_len={prediction_length},train_len={train_len}, max_len={np.max(ts_len)}, min_len={np.min(ts_len)}, cars={_data[2].shape[0]}')
 
             # process for each ts
             for rowid in range(_data[2].shape[0]):
@@ -1429,6 +1429,13 @@ def sim_onestep_pred(predictor, prediction_length, freq,
             break
 
         # end of for each ts
+        #if not _test:
+        #    #error in dataset
+        #    print('Error: empty _test')
+        #    import pdb
+        #    pdb.set_trace()
+        #    break
+
 
         # RUN Prediction here
         test_ds = ListDataset(_test, freq=freq,one_dim_target= False if _joint_train else True)

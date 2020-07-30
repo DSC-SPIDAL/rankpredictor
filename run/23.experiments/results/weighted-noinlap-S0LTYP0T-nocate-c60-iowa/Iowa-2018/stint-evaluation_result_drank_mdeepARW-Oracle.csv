@@ -1,0 +1,16 @@
+,Year,Model,ExpID,laptype,SignAcc,MAE,50-Risk,90-Risk
+0,Iowa-2018,CurRank,weighted-noinlap-S0LTYP0T-nocate-c60-drank-oracle,all,0.21951219512195122,2.2560975609756095,0.22182254196642687,0.21127098321342927
+1,Iowa-2018,RandomForest,weighted-noinlap-S0LTYP0T-nocate-c60-drank-oracle,all,0.573170731707317,1.7560975609756098,0.17266187050359713,0.16882494004796164
+2,Iowa-2018,SVM,weighted-noinlap-S0LTYP0T-nocate-c60-drank-oracle,all,0.524390243902439,1.951219512195122,0.19184652278177458,0.13237410071942446
+3,Iowa-2018,XGBoost,weighted-noinlap-S0LTYP0T-nocate-c60-drank-oracle,all,0.8780487804878049,0.5487804878048781,0.0539568345323741,0.05683453237410073
+4,Iowa-2018,deepARW-Oracle,weighted-noinlap-S0LTYP0T-nocate-c60-drank-oracle,all,0.6829268292682927,1.6341463414634145,0.16546762589928057,0.15146282973621103
+5,Iowa-2018,CurRank,weighted-noinlap-S0LTYP0T-nocate-c60-drank-oracle,normalpit,0.14,2.46,0.2342857142857143,0.22361904761904763
+6,Iowa-2018,RandomForest,weighted-noinlap-S0LTYP0T-nocate-c60-drank-oracle,normalpit,0.48,1.82,0.17333333333333334,0.1657142857142857
+7,Iowa-2018,SVM,weighted-noinlap-S0LTYP0T-nocate-c60-drank-oracle,normalpit,0.54,1.98,0.18857142857142858,0.11390476190476191
+8,Iowa-2018,XGBoost,weighted-noinlap-S0LTYP0T-nocate-c60-drank-oracle,normalpit,0.84,0.6,0.05714285714285714,0.06323809523809526
+9,Iowa-2018,deepARW-Oracle,weighted-noinlap-S0LTYP0T-nocate-c60-drank-oracle,normalpit,0.7,1.64,0.15904761904761905,0.1767238095238095
+10,Iowa-2018,CurRank,weighted-noinlap-S0LTYP0T-nocate-c60-drank-oracle,cautionpit,0.34375,1.9375,0.20064724919093851,0.1902912621359223
+11,Iowa-2018,RandomForest,weighted-noinlap-S0LTYP0T-nocate-c60-drank-oracle,cautionpit,0.71875,1.65625,0.1715210355987055,0.17411003236245953
+12,Iowa-2018,SVM,weighted-noinlap-S0LTYP0T-nocate-c60-drank-oracle,cautionpit,0.5,1.90625,0.19741100323624594,0.16375404530744334
+13,Iowa-2018,XGBoost,weighted-noinlap-S0LTYP0T-nocate-c60-drank-oracle,cautionpit,0.9375,0.46875,0.04854368932038835,0.0459546925566343
+14,Iowa-2018,deepARW-Oracle,weighted-noinlap-S0LTYP0T-nocate-c60-drank-oracle,cautionpit,0.65625,1.625,0.17637540453074432,0.10854368932038835

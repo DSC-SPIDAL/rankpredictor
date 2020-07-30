@@ -13,5 +13,5 @@ allargs="$@"
 
 script/run_model.sh S0LTYP0T shortterm oracle deepARW-Oracle deepARW-Oracle $testevent 2 $gpuid $suffix $allargs
 script/run_model.sh S0LTYP0T shortterm pitmodel deepARW-Oracle deepARW-MLP $testevent 100 $gpuid $suffix $allargs
-script/run_model.sh S0LTYP0T stint oracle deepARW-Oracle deepARW-Oracle $testevent 2 $gpuid $suffix $allargs
-script/run_model.sh S0LTYP0T stint pitmodel deepARW-Oracle deepARW-MLP $testevent 100 $gpuid $suffix $allargs
+#script/run_model.sh S0LTYP0T stint oracle deepARW-Oracle deepARW-Oracle $testevent 2 $gpuid $suffix $allargs
+#script/run_model.sh S0LTYP0T stint pitmodel deepARW-Oracle deepARW-MLP $testevent 100 $gpuid $suffix $allargs
