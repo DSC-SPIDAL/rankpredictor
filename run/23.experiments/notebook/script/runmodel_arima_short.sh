@@ -12,5 +12,5 @@ shift
 allargs="$@"
 
 
-script/run_model.sh S0LTYP0T shortterm oracle deepAR deepAR $testevent 2 $gpuid $suffix $allargs
-script/run_model.sh S0LTYP0T stint oracle deepAR deepAR $testevent 2 $gpuid $suffix $allargs
+script/run_model.sh S0LTYP0T shortterm oracle arima arima $testevent 2 $gpuid $suffix $allargs
+#script/run_model.sh S0LTYP0T stint oracle arima arima $testevent 2 $gpuid $suffix $allargs

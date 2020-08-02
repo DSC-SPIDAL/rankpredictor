@@ -533,7 +533,10 @@ run=1
 runid=f'{trainmodel}-{dataset}-all-indy-f1min-t{prediction_length}-e{epochs}-r{run}_{id}_t{prediction_length}'
 modelfile = _task_dir + runid
 
-if _skip_overwrite and os.path.exists(modelfile):
+if trainmodel == 'arima':
+    print('Skip train arima model')
+
+elif _skip_overwrite and os.path.exists(modelfile):
     print('Model checkpoint found at:',modelfile)
 
 else:
