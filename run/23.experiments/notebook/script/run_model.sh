@@ -47,12 +47,12 @@ export CUDA_VISIBLE_DEVICES=$gpuid
 if echo "$trainmodel" | grep -q "multi"; then
     #joint train
     echo "python RankNet-QuickTest-Slim.py config/${configfile}  --forecast_mode=${forecastmode} --pitmodel_bias=0 --loopcnt=${loopcnt} --test_event=${testevent} --trainmodel=${trainmodel} --testmodel=${testmodel} --suffix=${suffix} --gpuid=0 --joint_train --trainrace=${trainrace} --context_len=${contextlen} --prediction_len=${predictionlen}" | tee $logfile
-    python RankNet-QuickTest-Slim.py config/${configfile}  --forecast_mode=${forecastmode} --pitmodel_bias=0 --loopcnt=${loopcnt} --test_event=${testevent} --trainmodel=${trainmodel} --testmodel=${testmodel} --suffix=${suffix} --gpuid=0 --joint_train  --trainrace=${trainrace}  --context_len=${contextlen} --prediction_len=${predictionlen}| tee -a $logfile
+    python RankNet-QuickTest-Slim.py config/${configfile}  --forecast_mode=${forecastmode} --pitmodel_bias=0 --loopcnt=${loopcnt} --test_event=${testevent} --trainmodel=${trainmodel} --testmodel=${testmodel} --suffix=${suffix} --gpuid=0 --joint_train  --trainrace=${trainrace}  --context_len=${contextlen} --prediction_len=${predictionlen} 2>&1 | tee -a $logfile
 
 
 else
     echo "python RankNet-QuickTest-Slim.py config/${configfile} --forecast_mode=${forecastmode} --pitmodel_bias=0 --loopcnt=${loopcnt} --test_event=${testevent} --trainmodel=${trainmodel} --testmodel=${testmodel} --suffix=${suffix} --gpuid=0  --trainrace=${trainrace} --context_len=${contextlen} --prediction_len=${predictionlen}" | tee $logfile
-    python RankNet-QuickTest-Slim.py config/${configfile}  --forecast_mode=${forecastmode} --pitmodel_bias=0 --loopcnt=${loopcnt} --test_event=${testevent} --trainmodel=${trainmodel} --testmodel=${testmodel} --suffix=${suffix} --gpuid=0  --trainrace=${trainrace}  --context_len=${contextlen} --prediction_len=${predictionlen}| tee -a $logfile
+    python RankNet-QuickTest-Slim.py config/${configfile}  --forecast_mode=${forecastmode} --pitmodel_bias=0 --loopcnt=${loopcnt} --test_event=${testevent} --trainmodel=${trainmodel} --testmodel=${testmodel} --suffix=${suffix} --gpuid=0  --trainrace=${trainrace}  --context_len=${contextlen} --prediction_len=${predictionlen} 2>&1 | tee -a $logfile
 
 fi
 
