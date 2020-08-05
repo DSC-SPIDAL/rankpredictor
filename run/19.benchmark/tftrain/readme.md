@@ -3,12 +3,12 @@ train RankNet with tensorflow
 
 1. setup the env
 
-the following commands install the Gluonts and MxNet(cpu version)
+the following commands install tensorflow and dependencies
 
 ```
 conda create -n ranknet python=3 numpy matplotlib pandas scikit-learn scipy
 conda activate ranknet
-pip install tensorflow
+conda install -c anaconda tensorflow=2.1.0 tqdm keras
 
 ```
 
