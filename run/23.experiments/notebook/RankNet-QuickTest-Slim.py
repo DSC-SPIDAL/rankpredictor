@@ -247,6 +247,11 @@ _dataset_id = '%s-%s'%(inlapstr[_inlap_status], cur_featurestr)
 
 #trainrace = 'Indy500'
 #_train_events = [events_id[x] for x in [f'{trainrace}-{x}' for x in ['2013','2014','2015','2016','2017']]]
+
+#patch
+if trainrace == 'Pocono':
+    _train_years = ['2013','2015','2016','2017']
+
 _train_events = [events_id[x] for x in [f'{trainrace}-{x}' for x in _train_years]]
 #replace TRAINRACE in pitmodel
 if pitmodel.find('TRAINRACE') > 0:

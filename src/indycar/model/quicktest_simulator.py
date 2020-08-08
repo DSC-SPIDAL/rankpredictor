@@ -759,12 +759,20 @@ def load_model(prediction_length, model_name,trainid,epochs=1000, exproot='../mo
             predictor =  Predictor.deserialize(Path(modeldir))
             print(f'loading model...{model}...done!, ctx:{predictor.ctx}')
 
-        elif model_name == 'joint' or model_name == 'deepAR-multi':
+        elif model_name == 'deepAR-multi':
             model=f'deepAR-multi-{_task_id}-all-indy-f1min-t{prediction_length}-e{epochs}-r1_oracle_t{prediction_length}'
             modeldir = rootdir + model
             print(f'predicting model={model_name}, plen={prediction_length}')
             predictor =  Predictor.deserialize(Path(modeldir))
             print(f'loading model...{model}...done!, ctx:{predictor.ctx}')
+
+        elif model_name == 'joint' or model_name == 'deepARW-multi' or model_name == 'RankNet-Joint':
+            model=f'deepARW-multi-{_task_id}-all-indy-f1min-t{prediction_length}-e{epochs}-r1_oracle_t{prediction_length}'
+            modeldir = rootdir + model
+            print(f'predicting model={model_name}, plen={prediction_length}')
+            predictor =  Predictor.deserialize(Path(modeldir))
+            print(f'loading model...{model}...done!, ctx:{predictor.ctx}')
+
 
         # transformer
         elif model_name == 'transformer' or model_name == 'Transformer':
