@@ -88,6 +88,8 @@ parser.add_option("--dataroot", default='data/', dest="dataroot")
 parser.add_option("--prediction_length", default=-1,type='int',  dest="prediction_length")
 parser.add_option("--context_length", default=-1,type='int',  dest="context_length")
 
+parser.add_option("--weight_coef", default=-1,type='float',  dest="weight_coef")
+
 
 opt, args = parser.parse_args()
 print(len(args), opt.joint_train)
@@ -166,6 +168,7 @@ _pitmodel_bias = 0
 #shortterm, stint
 #_forecast_mode = 'stint'
 _forecast_mode = 'shortterm'
+_weight_coef = 9
 
 #load arguments overwites
 if opt.forecast_mode != '':
@@ -184,6 +187,8 @@ if opt.prediction_length > 0:
     prediction_length = opt.prediction_length
 if opt.context_length > 0:
     context_length = opt.context_length
+if opt.weight_coef > 0:
+    _weight_coef = opt.weight_coef
 if opt.pitmodel_bias >= 0:
     _pitmodel_bias = opt.pitmodel_bias
 if opt.test_event != '':
@@ -319,7 +324,7 @@ gvar._test_train_len = _test_train_len
 gvar._joint_train = _joint_train
 gvar._pitmodel_bias = _pitmodel_bias
 gvar._train_events = _train_events
-
+gvar._weight_coef = _weight_coef
 gvar.dbid = dbid
 gvar.LAPTIME_DATASET = LAPTIME_DATASET
 
@@ -452,6 +457,7 @@ print('pitmodel:', pitmodel)
 print('test_event:', _test_event)
 print('prediction_length:', prediction_length)
 print('context_length:', context_length)
+print('weight_coef:', _weight_coef)
 sys.stdout.flush()
 
 # In[7]:
@@ -552,7 +558,8 @@ else:
     print('target_dim:%s', target_dim)
 
     estimator = init_estimator(trainmodel, gpuid, 
-            epochs, batch_size,target_dim, distr_output = distr_output,use_feat_static = use_feat_static)
+            epochs, batch_size,target_dim, 
+            distr_output = distr_output,use_feat_static = use_feat_static)
 
     predictor = estimator.train(train_ds)
 

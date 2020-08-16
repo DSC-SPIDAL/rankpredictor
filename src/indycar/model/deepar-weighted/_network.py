@@ -52,6 +52,7 @@ class DeepARWeightNetwork(mx.gluon.HybridBlock):
         lags_seq: List[int],
         scaling: bool = True,
         dtype: DType = np.float32,
+        weight_coef: float = 9,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -85,6 +86,8 @@ class DeepARWeightNetwork(mx.gluon.HybridBlock):
         ]
 
         self.target_shape = distr_output.event_shape
+
+        self.weight_coef = weight_coef
 
         # TODO: is the following restriction needed?
         assert (
@@ -428,7 +431,7 @@ class DeepARWeightTrainingNetwork(DeepARWeightNetwork):
             r = F.slice_axis(target, axis=1, begin=2, end=None)
             l = F.slice_axis(target, axis=1, begin=0, end=-2)
             w1 = F.ones_like(r)
-            w9 = F.ones_like(r)*9
+            w9 = F.ones_like(r)*self.weight_coef
             w = F.where(r==l, w1, w9)
 
             s = F.slice_axis(target, axis=1, begin=0, end=2)
@@ -438,7 +441,7 @@ class DeepARWeightTrainingNetwork(DeepARWeightNetwork):
         else:
             c = target[:,2:] - target[:,:-2]
             w1 = F.ones_like(c)
-            w9 = F.ones_like(c) * 9
+            w9 = F.ones_like(c) * self.weight_coef
             loss_weights2 = F.ones_like(target)
             loss_weights2[:,2:] = F.where(c==0, w1, w9)
         

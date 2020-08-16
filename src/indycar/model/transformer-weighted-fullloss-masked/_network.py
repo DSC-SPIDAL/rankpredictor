@@ -52,6 +52,7 @@ class TransformerWeightedFullLossMaskedNetwork(mx.gluon.HybridBlock):
         embedding_dimension: int,
         lags_seq: List[int],
         scaling: bool = True,
+        weight_coef: float = 9,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -72,6 +73,8 @@ class TransformerWeightedFullLossMaskedNetwork(mx.gluon.HybridBlock):
         self.lags_seq = lags_seq
 
         self.target_shape = distr_output.event_shape
+        
+        self.weight_coef = weight_coef
 
         with self.name_scope():
             self.proj_dist_args = distr_output.get_args_proj()
@@ -359,7 +362,7 @@ class TransformerWeightedFullLossMaskedTrainingNetwork(TransformerWeightedFullLo
             r = F.slice_axis(target, axis=1, begin=-2, end=None)
             l = F.slice_axis(target, axis=1, begin=-4, end=-2)
             w1 = F.ones_like(r)
-            w9 = F.ones_like(r)*9
+            w9 = F.ones_like(r)*self.weight_coef
             w = F.where(r==l, w1, w9)
 
             loss_weights2 = w
@@ -368,7 +371,7 @@ class TransformerWeightedFullLossMaskedTrainingNetwork(TransformerWeightedFullLo
             r = F.slice_axis(target, axis=1, begin=2, end=None)
             l = F.slice_axis(target, axis=1, begin=0, end=-2)
             w1 = F.ones_like(r)
-            w9 = F.ones_like(r)*9
+            w9 = F.ones_like(r)*self.weight_coef
             w = F.where(r==l, w1, w9)
 
             s = F.slice_axis(target, axis=1, begin=0, end=2)

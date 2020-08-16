@@ -134,6 +134,7 @@ class DeepARWeightEstimator(GluonEstimator):
         time_features: Optional[List[TimeFeature]] = None,
         num_parallel_samples: int = 100,
         dtype: DType = np.float32,
+        weight_coef: float = 9,
     ) -> None:
         super().__init__(trainer=trainer, dtype=dtype)
 
@@ -197,6 +198,8 @@ class DeepARWeightEstimator(GluonEstimator):
         self.history_length = self.context_length + max(self.lags_seq)
 
         self.num_parallel_samples = num_parallel_samples
+
+        self.weight_coef = weight_coef
 
     def create_transformation(self) -> Transformation:
         remove_field_names = [FieldName.FEAT_DYNAMIC_CAT]
@@ -299,6 +302,7 @@ class DeepARWeightEstimator(GluonEstimator):
             lags_seq=self.lags_seq,
             scaling=self.scaling,
             dtype=self.dtype,
+            weight_coef=self.weight_coef,
         )
 
     def create_predictor(

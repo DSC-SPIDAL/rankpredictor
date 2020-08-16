@@ -140,6 +140,7 @@ class TransformerWeightedFullLossMaskedEstimator(GluonEstimator):
         use_feat_dynamic_real: bool = False,
         use_feat_static_cat: bool = False,
         num_parallel_samples: int = 100,
+        weight_coef: float = 9,
     ) -> None:
         super().__init__(trainer=trainer)
 
@@ -175,6 +176,9 @@ class TransformerWeightedFullLossMaskedEstimator(GluonEstimator):
         self.cardinality = cardinality if use_feat_static_cat else [1]
         self.embedding_dimension = embedding_dimension
         self.num_parallel_samples = num_parallel_samples
+
+        self.weight_coef = weight_coef
+
         self.lags_seq = (
             lags_seq
             if lags_seq is not None

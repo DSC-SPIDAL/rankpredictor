@@ -10,8 +10,8 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 #from indycar.model.deepartf.dataset.time_series import MockTs
-from indycar.model.deepartfve.dataset.time_series import RecordTs
-from indycar.model.deepartfve.model.lstm import DeepAR
+from indycar.model.deepartf.dataset.time_series import RecordTs
+from indycar.model.deepartf.model.lstm import DeepAR
 
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
@@ -77,9 +77,6 @@ def predict(model):
     
     return batch, tot_res
 
-import tensorflow as tf
-tf.config.experimental_run_functions_eagerly(False)
-#tf.config.experimental_run_functions_eagerly(True)
 
 ts = RecordTs('savedata_drank_e1.pickle')
 _context_len = 40
