@@ -66,28 +66,32 @@ class StudentTLayer(Layer):
  
     """
     def __init__(self, output_dim, **kwargs):
+        super(StudentTLayer, self).__init__(**kwargs)
+
         self.output_dim = output_dim
         self.num_parameters = 3
         self.kernels = [[] for x in range(3)]
         self.biases = [[] for x in range(3)]
-
-        super(StudentTLayer, self).__init__(**kwargs)
 
     def build(self, input_shape):
         """
         input: shape (NTC)
         """
         n_weight_rows = input_shape[2]
+        #n_weight_rows = 40
+        print('n_weight_rows:', n_weight_rows)
     
         for i in range(self.num_parameters):
             self.kernels[i] = self.add_weight(name='kernel_%d'%i,
                                         shape=(n_weight_rows, self.output_dim),
-                                        initializer=glorot_normal(),
+                                        initializer="random_normal",
+                                        #glorot_normal(),
                                         trainable=True)
         for i in range(self.num_parameters):
             self.biases[i] = self.add_weight(name='bias_%d'%i,
                                       shape=(self.output_dim,),
-                                      initializer=glorot_normal(),
+                                      initializer="random_normal",
+                                      #initializer=glorot_normal(),
                                       trainable=True)
         super(StudentTLayer, self).build(input_shape)
 
@@ -101,12 +105,25 @@ class StudentTLayer(Layer):
         output_nu = tf.matmul(x, self.kernels[2]) + self.biases[2]
         output_nu_pos = K.log(1 + K.exp(output_nu)) + 1e-06 + 2.0
 
-        return [output_mu, output_sig_pos, output_nu_pos]
+        theta = tf.concat([output_mu, output_sig_pos, output_nu_pos],axis=2)
+        #return [output_mu, output_sig_pos, output_nu_pos]
+        return theta
 
     def compute_output_shape(self, input_shape):
         """
         The assumption is the output ts is always one-dimensional
         """
+        return (input_shape[0], input_shape[1], 3)
         return [(input_shape[0], input_shape[1], self.output_dim),
                 (input_shape[0], input_shape[1], self.output_dim),
                 (input_shape[0], input_shape[1], self.output_dim)]
+
+
+
+    def get_config(self):
+        base_config = super(StudentTLayer, self).get_config()
+        base_config['output_dim'] = self.output_dim
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

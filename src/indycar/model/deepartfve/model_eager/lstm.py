@@ -153,9 +153,11 @@ class DeepAR(NNModel):
              context_len=context_len, prediction_len=prediction_len, input_dim=input_dim,
              num_cells = num_cells, num_layers = num_layers, dropout_rate = dropout_rate)
 
-        model = Model(inputs, theta[0])
-        model.compile(loss=self.loss(theta[1:]), optimizer=self.optimizer,
-                experimental_run_tf_function = False)
+        #model = Model(inputs, theta[0])
+        model = Model(inputs, theta)
+        model.compile(loss=self.loss(), optimizer=self.optimizer)
+                #experimental_run_tf_function = True)
+                #experimental_run_tf_function = False)
 
         model.summary()
 

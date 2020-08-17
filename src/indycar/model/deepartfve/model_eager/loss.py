@@ -25,10 +25,11 @@ def gaussian_sampler(theta, num_samples=1):
     #return np.random.normal(loc=mu, scale=np.sqrt(sigma), size=num_samples)[0]
     return np.random.normal(loc=mu, scale=sigma, size=num_samples)[0]
 
-def studentt_likelihood(theta):
+def studentt_likelihoodi_raw(theta):
 
     def studentt_loss(y_true, y_pred):
 
+        print('y_pred.shape=%s'%y_pred.shape)
         print('y_true.shape=%s'%y_true.shape)
 
         sigma, nu = theta[0], theta[1]
@@ -49,6 +50,38 @@ def studentt_likelihood(theta):
         ll = Z - nup1_half * F.log1p(part1)
         return -ll
     return studentt_loss
+
+def studentt_likelihood():
+
+    def studentt_loss(y_true, y_pred):
+
+        print('y_pred.shape=%s'%y_pred.shape)
+        print('y_true.shape=%s'%y_true.shape)
+
+        #sigma, nu = theta[0], theta[1]
+
+        #mu, sigma, nu = self.mu, self.sigma, self.nu
+        mu, sigma, nu = y_pred[:,:,0], y_pred[:,:,1],y_pred[:,:,2]
+
+        mu = tf.expand_dims(mu, 2)
+        sigma = tf.expand_dims(sigma, 2)
+        nu = tf.expand_dims(nu, 2)
+
+        F = tf.math
+
+        nup1_half = (nu + 1.0) / 2.0
+        part1 = 1.0 / nu * F.square((y_true - mu) / sigma)
+        Z = (
+            F.lgamma(nup1_half)
+            - F.lgamma(nu / 2.0)
+            - 0.5 * F.log(np.math.pi * nu)
+            - F.log(sigma)
+        )
+
+        ll = Z - nup1_half * F.log1p(part1)
+        return -ll
+    return studentt_loss
+
 
 def studentt_sampler(theta, num_samples=1):
     mu, sigma, nu = theta[0],theta[1], theta[2]
