@@ -21,7 +21,8 @@ _debug_profile_start = 5
 class DeepAR(NNModel):
     def __init__(self, ts_obj, steps_per_epoch=50, epochs=100, 
            distribution = 'Gaussian',
-           optimizer='adam', with_custom_nn_structure=None):
+           optimizer='adam', with_custom_nn_structure=None,
+           use_generator=False):
 
         self.ts_obj = ts_obj
         self.inputs, self.z_sample = None, None
@@ -30,6 +31,8 @@ class DeepAR(NNModel):
         self.optimizer = optimizer
         self.keras_model = None
     
+        self.use_generator = use_generator
+
         if distribution == 'Gaussian':
             self.loss = gaussian_likelihood
             self.distrib = GaussianLayer
@@ -166,11 +169,30 @@ class DeepAR(NNModel):
 
         _debug_itercnt = 0
         #model.fit_generator(ts_generator(self.ts_obj,
-        model.fit(ts_generator(self.ts_obj,
+        if self.use_generator:
+            model.fit(ts_generator(self.ts_obj,
                                          input_shape[0]),
                             steps_per_epoch=self.steps_per_epoch,
                             epochs=self.epochs,
                             callbacks=callbacks)
+        else:
+
+            datax = np.empty((0, self.ts_obj.n_steps, self.ts_obj.n_features))
+            datay = np.empty((0, self.ts_obj.n_steps, 1))
+            curbatch = 0
+            while curbatch < self.ts_obj.n_batches:
+                x,y = self.ts_obj.next_batch(32, input_shape[0])
+                datax = np.append(datax, x, axis=0)
+                datay = np.append(datay, y, axis=0)
+                curbatch = curbatch + 1
+
+
+            model.fit(datax, datay,
+                      batch_size =32,
+                      steps_per_epoch=self.steps_per_epoch,
+                      epochs=self.epochs,
+                      callbacks=callbacks)
+
         if verbose:
             logger.debug('Model was successfully trained')
         self.keras_model = model
