@@ -15,6 +15,8 @@ import numpy as np
 
 logger = logging.getLogger('deepar')
 
+_debug_itercnt = 0
+_debug_profile_start = 5
 
 class DeepAR(NNModel):
     def __init__(self, ts_obj, steps_per_epoch=50, epochs=100, 
@@ -135,6 +137,7 @@ class DeepAR(NNModel):
         x = inputs
         for l in range(num_layers):
             x = LSTM(num_cells, return_sequences=True, dropout=dropout_rate, unroll=True)(x)
+            #x = LSTM(num_cells, return_sequences=True, dropout=dropout_rate, unroll=False)(x)
 
         #x = Dense(3, activation='relu')(x)
         #loc, scale = GaussianLayer(1, name='main_output')(x)
@@ -146,7 +149,7 @@ class DeepAR(NNModel):
 
     def fit(self, verbose=False, 
             context_len=20, prediction_len=2, input_dim=1,
-            num_cells = 40, num_layers = 2, dropout_rate = 0.1):
+            num_cells = 40, num_layers = 2, dropout_rate = 0.1, callbacks=None):
 
         input_shape, inputs, theta = self.nn_structure(
              distrib = self.distrib,
@@ -161,11 +164,13 @@ class DeepAR(NNModel):
 
         model.summary()
 
+        _debug_itercnt = 0
         #model.fit_generator(ts_generator(self.ts_obj,
         model.fit(ts_generator(self.ts_obj,
                                          input_shape[0]),
                             steps_per_epoch=self.steps_per_epoch,
-                            epochs=self.epochs)
+                            epochs=self.epochs,
+                            callbacks=callbacks)
         if verbose:
             logger.debug('Model was successfully trained')
         self.keras_model = model
@@ -196,8 +201,16 @@ def ts_generator(ts_obj, n_steps):
     :param n_steps: parameter that specifies the length of the net's input tensor
     :return:
     """
+    global _debug_itercnt, _debug_profile_start
     while 1:
         #batch = ts_obj.next_batch(1, n_steps)
         #batch = ts_obj.next_batch(32, n_steps)
         batch = ts_obj.next_batch(32, n_steps)
+
+        #if _debug_itercnt == _debug_profile_start:
+        #    with open('./vtune-flag.txt','w') as flagf:
+        #        flagf.write('hi')
+
+        _debug_itercnt += 1
+
         yield batch[0], batch[1]
