@@ -1138,6 +1138,15 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
     context_length = gvar.context_length
     freq = gvar.freq
 
+    trainer=Trainer(ctx=ctx, 
+        batch_size = batch_size,
+        epochs=epochs, 
+        learning_rate=gvar.learning_rate, 
+        patience = gvar.patience,
+        #hybridize=False,
+        num_batches_per_epoch=100
+        )
+
     if model == 'deepAR':
         if use_feat_static:
             estimator = DeepAREstimator(
@@ -1149,12 +1158,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 distr_output = distr_output,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
             )
         else:
             estimator = DeepAREstimator(
@@ -1166,12 +1170,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 distr_output = distr_output,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
         )
         
     elif model == 'deepAR-Oracle':
@@ -1186,12 +1185,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 distr_output = distr_output,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
                 )
         else:
             estimator = DeepAREstimator(
@@ -1203,12 +1197,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 distr_output = distr_output,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
                 )
     elif model == 'deepARW-Oracle' or model == 'RankNet':
 
@@ -1223,13 +1212,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
                 weight_coef=gvar._weight_coef,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
                 )
         else:
             estimator = DeepARWeightEstimator(
@@ -1242,13 +1225,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
                 weight_coef=gvar._weight_coef,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
                 )
     elif model == 'Transformer':
 
@@ -1262,13 +1239,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 distr_output = distr_output,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
                 )
         else:
             estimator = TransformerEstimator(
@@ -1280,13 +1251,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 distr_output = distr_output,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
                 )
     elif model == 'Transformer-Oracle':
 
@@ -1300,13 +1265,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 distr_output = distr_output,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
                 )
         else:
             estimator = TransformerEstimator(
@@ -1318,13 +1277,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 distr_output = distr_output,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
                 )
     elif model == 'TransformerW-Oracle':
 
@@ -1338,13 +1291,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 distr_output = distr_output,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
                 )
         else:
             estimator = TransformerWeightedEstimator(
@@ -1356,13 +1303,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 distr_output = distr_output,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
                 )
     elif model == 'TransformerWF-Oracle' or model == 'RankNet-Transformer':
 
@@ -1376,13 +1317,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 distr_output = distr_output,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
                 )
         else:
             estimator = TransformerWeightedFullLossEstimator(
@@ -1394,13 +1329,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 distr_output = distr_output,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
                 )
     elif model == 'TransformerWFM-Oracle':
 
@@ -1415,13 +1344,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
                 weight_coef=gvar._weight_coef,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
                 )
         else:
             estimator = TransformerWeightedFullLossMaskedEstimator(
@@ -1434,13 +1357,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
                 weight_coef=gvar._weight_coef,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
                 )
     
     elif model == 'TransformerF-Oracle':
@@ -1455,13 +1372,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 distr_output = distr_output,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
                 )
         else:
             estimator = TransformerFullLossEstimator(
@@ -1473,15 +1384,8 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
                 distr_output = distr_output,
                 freq=freq,
                 lags_seq=gvar._lags_seq,
-                trainer=Trainer(ctx=ctx, 
-                                batch_size = batch_size,
-                                epochs=epochs, 
-                                learning_rate=1e-3, 
-                                #hybridize=False,
-                                num_batches_per_epoch=100
-                               )
+                trainer=trainer
                 )
-            
             
     elif model == 'deepAR-multi':
         estimator = DeepAREstimator(
@@ -1492,12 +1396,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
             use_feat_dynamic_real=False,
             freq=freq,
             lags_seq=gvar._lags_seq,
-            trainer=Trainer(ctx=ctx, 
-                            batch_size = batch_size,
-                            epochs=epochs, 
-                            learning_rate=1e-3, 
-                            num_batches_per_epoch=100
-                           ),
+            trainer=trainer,
             distr_output=MultivariateGaussianOutput(dim=target_dim),
         )
     elif model == 'deepARW-multi' or model == 'RankNet-Joint':
@@ -1510,12 +1409,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
             freq=freq,
             lags_seq=gvar._lags_seq,
             weight_coef=gvar._weight_coef,
-            trainer=Trainer(ctx=ctx, 
-                            batch_size = batch_size,
-                            epochs=epochs, 
-                            learning_rate=1e-3, 
-                            num_batches_per_epoch=100
-                           ),
+            trainer=trainer,
             distr_output=MultivariateGaussianOutput(dim=target_dim),
         )
 
@@ -1527,13 +1421,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
             context_length= context_length,
             freq=freq,
             lags_seq=gvar._lags_seq,
-            trainer=Trainer(ctx=ctx, 
-                            batch_size = batch_size,
-                            epochs=epochs,
-                            learning_rate=1e-3,
-                            hybridize=False,
-                            num_batches_per_epoch=100
-                           )
+            trainer=trainer
         )
     elif model == 'deepFactor':
         estimator = DeepFactorEstimator(
@@ -1541,12 +1429,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
             context_length= context_length,
             freq=freq,
             lags_seq=gvar._lags_seq,
-            trainer=Trainer(ctx=ctx, 
-                            batch_size = batch_size,
-                            epochs=epochs, 
-                            learning_rate=1e-3, 
-                            num_batches_per_epoch=100
-                           )
+            trainer=trainer
         )
     elif model == 'deepState':
         estimator = DeepStateEstimator(
@@ -1555,12 +1438,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
             cardinality=cardinality,
             freq=freq,
             lags_seq=gvar._lags_seq,
-            trainer=Trainer(ctx=ctx, 
-                            batch_size = batch_size,
-                            epochs=epochs, 
-                            learning_rate=1e-3, 
-                            num_batches_per_epoch=100
-                           )
+            trainer=trainer
         )
     elif model == 'ets':
         estimator = RForecastPredictor(method_name='ets',freq= freq, prediction_length = prediction_length)

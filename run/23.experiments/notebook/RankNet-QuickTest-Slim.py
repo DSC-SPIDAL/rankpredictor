@@ -89,7 +89,10 @@ parser.add_option("--prediction_length", default=-1,type='int',  dest="predictio
 parser.add_option("--context_length", default=-1,type='int',  dest="context_length")
 
 parser.add_option("--weight_coef", default=-1,type='float',  dest="weight_coef")
+parser.add_option("--lr", default=1e-3,type='float',  dest="learning_rate")
+parser.add_option("--patience", default=10,type='int',  dest="patience")
 
+parser.add_option("--use_validation", action="store_true", default=False, dest="use_validation")
 
 opt, args = parser.parse_args()
 print(len(args), opt.joint_train)
@@ -197,6 +200,16 @@ if opt.suffix:
     _debugstr = f'-{opt.suffix}'
 else:
     _debugstr = ''
+
+if opt.learning_rate > 0:
+    gvar.learning_rate = opt.learning_rate
+
+if opt.patience > 0:
+    gvar.patience = opt.patience
+
+gvar.use_validation = opt.use_validation
+
+
 dataroot = opt.dataroot
 trainrace = opt.trainrace
 
@@ -561,7 +574,10 @@ else:
             epochs, batch_size,target_dim, 
             distr_output = distr_output,use_feat_static = use_feat_static)
 
-    predictor = estimator.train(train_ds)
+    if gvar.use_validation:
+        predictor = estimator.train(train_ds, test_ds)
+    else:
+        predictor = estimator.train(train_ds)
 
     if _savedata:
         os.makedirs(modelfile, exist_ok=True)

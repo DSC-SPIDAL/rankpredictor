@@ -41,6 +41,9 @@ use_feat_static = _use_cate_feature
 
 distroutput = 'student'
 batch_size = 32
+learning_rate = 1e-3
+patience = 10
+use_validation = False
 
 # using only one lags
 _lags_seq = [1]

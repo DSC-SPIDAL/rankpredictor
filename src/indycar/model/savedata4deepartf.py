@@ -509,11 +509,15 @@ if __name__ == '__main__':
 
     #target = estimator.network.savetarget
     #other = estimator.network.saveother
+    print('len(savedata):', data.keys())
     savefile = opt.savedata
     with open(savefile, 'wb') as f:
-        #pack [global_carids, laptime_data]
-        # Pickle the 'data' dictionary using the highest protocol available.
+        savedata = [data['input'], data['target'],0]
         #pickle.dump([data,target,other], f, pickle.HIGHEST_PROTOCOL)
+        pickle.dump(savedata, f, pickle.HIGHEST_PROTOCOL)
+        #pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
+
+    with open("alldata-" + savefile, 'wb') as f:
         pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
 
     logger.info('Save data size=%d to %s'%(len(data), savefile))

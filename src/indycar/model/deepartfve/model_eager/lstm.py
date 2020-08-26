@@ -152,7 +152,9 @@ class DeepAR(NNModel):
 
     def fit(self, verbose=False, 
             context_len=20, prediction_len=2, input_dim=1,
-            num_cells = 40, num_layers = 2, dropout_rate = 0.1, callbacks=None):
+            num_cells = 40, num_layers = 2, dropout_rate = 0.1, 
+            batch_size = 32,
+            callbacks=None):
 
         input_shape, inputs, theta = self.nn_structure(
              distrib = self.distrib,
@@ -188,7 +190,7 @@ class DeepAR(NNModel):
 
 
             model.fit(datax, datay,
-                      batch_size =32,
+                      batch_size = batch_size,
                       steps_per_epoch=self.steps_per_epoch,
                       epochs=self.epochs,
                       callbacks=callbacks)
