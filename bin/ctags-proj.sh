@@ -1,5 +1,6 @@
 #!/bin/bash
-if [ -f ".gitignore" ]; then
+#if [ -f ".gitignore" ]; then
+if [ -d ".git" ]; then
   if [ -f ".srclist" ]; then
     ctags -R --exclude='.git' -L .srclist
   else

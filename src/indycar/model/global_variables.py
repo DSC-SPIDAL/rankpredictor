@@ -24,6 +24,7 @@ _train_len = 60
 prediction_length = 2
 
 context_ratio = 0.
+test_context_ratio = 0.
 context_length =  60
 contextlen = context_length
 
