@@ -91,8 +91,12 @@ _batch_size = 32
 _seq_len = _context_len + _prediction_len
 
 
+
+with open('./vtune-flag.txt','w') as flagf:
+    flagf.write('hi')
+
 # train
-model3 = DeepAR(ts, epochs=10, distribution='StudentT', with_custom_nn_structure=DeepAR.encoder_decoder)
+model3 = DeepAR(ts, epochs=50, distribution='StudentT', with_custom_nn_structure=DeepAR.encoder_decoder)
 model3.fit(context_len=_context_len, prediction_len=_prediction_len, input_dim = 33)
 
 

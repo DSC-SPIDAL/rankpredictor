@@ -75,3 +75,10 @@ maxlap = 200
 dbid = ''
 LAPTIME_DATASET = ''
 rankdata = None
+
+#
+# new experimental vars
+#
+# static_cat type: 0: carid; 1:carid, eid; 2:tsid
+# fail, carid is hard coded in feat_static_cat
+static_cat_type = 0

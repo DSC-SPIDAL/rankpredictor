@@ -8,6 +8,7 @@ import tqdm
 import pandas as pd
 from matplotlib import pyplot as plt
 import numpy as np
+from optparse import OptionParser
 
 import tensorflow as tf
 #from indycar.model.deepartf.dataset.time_series import MockTs
@@ -87,15 +88,32 @@ class myCallback(tf.keras.callbacks.Callback):
                 flagf.write('hi')
 
 
-use_cores=2
+
+# cmd argument parser
+usage = 'testve.py  --usecore # --usegenerator'
+
+parser = OptionParser(usage)
+
+parser.add_option("--usegenerator", action="store_true", default=False, dest="usegenerator")
+parser.add_option("--usecore", type=int, default=-1, dest="usecore")
+parser.add_option("--batchsize", type=int, default=32, dest="batchsize")
+parser.add_option("--contextlen", type=int, default=40, dest="contextlen")
+parser.add_option("--epochs", type=int, default=10, dest="epochs")
+opt, args = parser.parse_args()
+
+#use_cores=2
 #tf.config.experimental_run_functions_eagerly(False)
 #tf.config.experimental_run_functions_eagerly(True)
 #tf.compat.v1.disable_eager_execution()
+use_cores = opt.usecore
 
 if use_cores > 0:
-
-    tf.config.threading.set_inter_op_parallelism_threads(use_cores) 
-    tf.config.threading.set_intra_op_parallelism_threads(16)
+    print(f'Set usecore:{use_cores}')
+    #tf.config.threading.set_inter_op_parallelism_threads(use_cores) 
+    #tf.config.threading.set_intra_op_parallelism_threads(16)
+    tf.config.threading.set_inter_op_parallelism_threads(1) 
+    tf.config.threading.set_intra_op_parallelism_threads(use_cores)
+    
     tf.config.set_soft_device_placement(True)
     
     os.environ["OMP_NUM_THREADS"] = f"{use_cores}"
@@ -106,17 +124,19 @@ if use_cores > 0:
     
 
 ts = RecordTs('savedata_drank_e1.pickle')
-_context_len = 40
+#_context_len = 40
+_context_len = opt.contextlen
 _prediction_len = 2
-_batch_size = 32
+_batch_size = opt.batchsize
 _seq_len = _context_len + _prediction_len
-
-
+_epochs = opt.epochs
 
 # train
 callbacks = myCallback()
-model3 = DeepAR(ts, epochs=50, distribution='StudentT', with_custom_nn_structure=DeepAR.encoder_decoder)
-model3.fit(context_len=_context_len, prediction_len=_prediction_len, input_dim = 33,callbacks=[callbacks])
+model3 = DeepAR(ts, epochs=_epochs, distribution='StudentT', 
+        with_custom_nn_structure=DeepAR.encoder_decoder, use_generator = opt.usegenerator)
+model3.fit(context_len=_context_len, prediction_len=_prediction_len, 
+        input_dim = 33, batch_size = _batch_size, callbacks=[callbacks])
 
 
 # prediction

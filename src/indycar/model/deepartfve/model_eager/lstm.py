@@ -12,6 +12,7 @@ from tensorflow.keras.layers import LSTM
 from tensorflow.keras import backend as K
 import logging
 import numpy as np
+import time
 
 logger = logging.getLogger('deepar')
 
@@ -188,12 +189,22 @@ class DeepAR(NNModel):
                 datay = np.append(datay, y, axis=0)
                 curbatch = curbatch + 1
 
+            # start training
+            with open('./vtune-flag.txt','w') as flagf:
+                flagf.write('hi')
+                print('Start training...', flush=True)
 
+            start_time = time.time()
             model.fit(datax, datay,
                       batch_size = batch_size,
                       steps_per_epoch=self.steps_per_epoch,
                       epochs=self.epochs,
                       callbacks=callbacks)
+            execution_time = time.time() - start_time
+
+            print('Execution time:', execution_time)
+            print('Training Throughput:', batch_size * self.epochs * self.steps_per_epoch / execution_time, ' items/s')
+            print('Training Speed:', execution_time / (batch_size * self.epochs * self.steps_per_epoch ), ' s/item')
 
         if verbose:
             logger.debug('Model was successfully trained')

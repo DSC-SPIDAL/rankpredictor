@@ -181,11 +181,13 @@ class RecordTs(Dataset):
             # The protocol version used is detected automatically, so we do not
             # have to specify it.
             self.data,self.target, self.other = pickle.load(f, encoding='latin1')
-            print('dataset shape:',(self.data[0].shape))
-            print('target shape:',(self.target[0].shape))
             self.n_batches = len(self.data)
             self.batch_size, self.n_steps, self.n_features = self.data[0].shape
 
+            print('dataset shape:',(self.data[0].shape))
+            print('target shape:',(self.target[0].shape))
+            print('total bataches:', self.n_batches)
+ 
             self.curpos = 0
 
     def next_batch(self, batch_size, n_steps):

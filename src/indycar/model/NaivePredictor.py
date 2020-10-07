@@ -4,7 +4,7 @@ import mxnet as mx
 from mxnet import gluon
 import numpy as np
 import json
-
+import pandas as pd
 from typing import Callable, Dict, Iterator, NamedTuple, Optional, List
 
 from gluonts.core.component import validated
@@ -20,7 +20,10 @@ class NaivePredictor(Predictor):
                  freq: str,
                  prediction_length: int) -> None:
         self.prediction_length=prediction_length
+        if freq=='1min':
+            freq = 'T'
         self.freq = freq
+        self.lead_time = 0
     
     def predict(
             self, dataset: Dataset, num_samples: int = 100, **kwargs
@@ -57,7 +60,8 @@ class NaivePredictor(Predictor):
 
             yield SampleForecast(
                 samples=forecast_samples,
-                start_date=start + target_len,
+                #start_date=start + target_len,
+                start_date=start + pd.Timedelta(target_len, unit=self.freq),
                 freq=self.freq,
                 )
 
