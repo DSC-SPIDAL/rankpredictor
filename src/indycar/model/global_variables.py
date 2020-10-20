@@ -38,7 +38,7 @@ _use_weighted_model = True
 trainmodel = 'deepARW-Oracle' if _use_weighted_model else 'deepAR-Oracle'
 
 _use_cate_feature = False
-use_feat_static = _use_cate_feature 
+#use_feat_static = _use_cate_feature 
 
 distroutput = 'student'
 batch_size = 32
@@ -82,3 +82,37 @@ rankdata = None
 # static_cat type: 0: carid; 1:carid, eid; 2:tsid
 # fail, carid is hard coded in feat_static_cat
 static_cat_type = 0
+
+#
+# use driverid in replacing car_number
+#
+use_driverid = True
+#use_driverid = False
+
+#
+# set gluonts db content
+# True: remove feat_dynamic_real
+# False: keep feat_dynmaic_real
+#use_simpledb = True
+use_simpledb = False
+
+#
+# trainer setting
+# False to save data and debug shape of intermediate data
+# True by default
+#
+#hybridize = False
+hybridize = True
+
+#
+# global setting for model(DeepFactorX)
+#
+#use_dynamic_real = False
+#use_time_feat = True
+use_dynamic_real = True
+use_time_feat = False
+
+#
+# deepFactor
+#
+deepFactorX_num_hidden_local = 10

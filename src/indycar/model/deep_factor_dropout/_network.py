@@ -21,8 +21,9 @@ from gluonts.block.feature import FeatureEmbedder
 from gluonts.core.component import validated
 from gluonts.model.common import Tensor
 
+import indycar.model.global_variables as gvar
 
-class DeepFactorNetworkBase(HybridBlock):
+class DeepFactorXNetworkBase(HybridBlock):
     def __init__(
         self,
         global_model: HybridBlock,
@@ -39,6 +40,8 @@ class DeepFactorNetworkBase(HybridBlock):
             self.loading = nn.Dense(
                 units=global_model.num_output, use_bias=False
             )
+
+        self._debug_print = True
 
     def assemble_features(
         self,
@@ -64,6 +67,15 @@ class DeepFactorNetworkBase(HybridBlock):
 
         # putting together all the features
         input_feat = F.concat(repeated_cat, time_feat, dim=2)
+
+
+        #debug
+        if gvar.hybridize==False:
+        #if gvar.hybridize==False and self._debug_print:
+        #if True:
+            print('embedded_cat size:', embedded_cat.shape, 'time_feat size:', time_feat.shape, 'input_feat size:', input_feat.shape)
+            self._debug_print = False
+
         return embedded_cat, input_feat
 
     def compute_global_local(
@@ -100,7 +112,7 @@ class DeepFactorNetworkBase(HybridBlock):
         )
 
 
-class DeepFactorTrainingNetwork(DeepFactorNetworkBase):
+class DeepFactorXTrainingNetwork(DeepFactorXNetworkBase):
     def hybrid_forward(
         self,
         F,
@@ -137,7 +149,7 @@ class DeepFactorTrainingNetwork(DeepFactorNetworkBase):
         return loss
 
 
-class DeepFactorPredictionNetwork(DeepFactorNetworkBase):
+class DeepFactorXPredictionNetwork(DeepFactorXNetworkBase):
     @validated()
     def __init__(
         self, prediction_len: int, num_parallel_samples: int, **kwargs

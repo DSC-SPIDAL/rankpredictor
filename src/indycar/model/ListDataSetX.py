@@ -3,16 +3,17 @@
 
 from gluonts.dataset.common import ListDataset
 
+import indycar.model.global_variables as gvar
 
 #def ListDatasetX(dataset, freq, one_dim_target, simple=False):
-def ListDatasetX(dataset, freq, one_dim_target, simple=True):
+def ListDatasetX(dataset, freq, one_dim_target):
     """
     wrapper for ListDataSet
 
     """
 
     _dataset = []
-    if simple:
+    if gvar.use_simpledb:
         #copy only target and 'start'
         for rec in dataset:
             _dataset.append({'target':rec['target'],'start':rec['start'],

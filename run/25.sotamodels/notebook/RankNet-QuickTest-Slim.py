@@ -55,7 +55,7 @@ import indycar.model.quicktest_simulator_sota as stint
 #from indycar.model.global_variables import _hi
 import indycar.model.global_variables as gvar
 from indycar.model.quicktest_modules_sota import *
-
+from indycar.model.deep_factor import DeepFactorXEstimator
 
 # ## run
 
@@ -97,6 +97,8 @@ parser.add_option("--use_validation", action="store_true", default=False, dest="
 parser.add_option("--context_ratio", default=-1,type='float',  dest="context_ratio")
 parser.add_option("--test_context_ratio", default=-1,type='float',  dest="test_context_ratio")
 parser.add_option("--batch_size", default=-1,type='int',  dest="batch_size")
+
+parser.add_option("--use_cat_feat", default=-1, type='int', dest="use_cat_feat")
 
 opt, args = parser.parse_args()
 print(len(args), opt.joint_train)
@@ -155,7 +157,7 @@ if configfile != '':
     year = config.get(section, "year") #'2018'
     
     contextlen = context_length
-    use_feat_static = _use_cate_feature 
+    #use_feat_static = _use_cate_feature 
 
     #config1 = get_config()
     train_years = config.get(section, "train_years", fallback='2013,2014,2015,2016,2017')
@@ -221,8 +223,11 @@ if opt.learning_rate > 0:
 
 if opt.patience > 0:
     gvar.patience = opt.patience
+if opt.use_cat_feat >=0:
+    _use_cate_feature = True if opt.use_cat_feat>0 else False
 
 gvar.use_validation = opt.use_validation
+
 
 dataroot = opt.dataroot
 trainrace = opt.trainrace
@@ -266,7 +271,11 @@ events.extend(['Phoenix-2018','Gateway-2018','Gateway-2019'])
 events_id={key:idx for idx, key in enumerate(events)}
 
 # dataset shared
-dataOutputRoot = "data/"
+dataSuffix1 = "simpledb" if gvar.use_simpledb else "fulldb"
+dataSuffix2 = "driverid" if gvar.use_driverid else "carid"
+dataOutputRoot = f"data_{dataSuffix1}_{dataSuffix2}/"
+os.makedirs(dataOutputRoot, exist_ok=True)
+
 covergap = 1
 dbid = f'IndyCar_d{len(events)}_v{_featureCnt}_p{_inlap_status}'
 LAPTIME_DATASET = f'{dataOutputRoot}/laptime_rank_timediff_pit-oracle-{dbid}.pickle' 
@@ -355,7 +364,7 @@ gvar.gpuid =                                gpuid
 gvar._use_weighted_model =                  _use_weighted_model
 gvar.trainmodel =                           trainmodel
 gvar._use_cate_feature =                    _use_cate_feature
-gvar.use_feat_static =                      use_feat_static
+#gvar.use_feat_static =                      use_feat_static
 gvar.distroutput =                          distroutput
 gvar.batch_size =                           batch_size
 gvar.loopcnt =                              loopcnt
@@ -611,7 +620,7 @@ else:
 
     estimator = init_estimator(trainmodel, gpuid, 
             epochs, batch_size,target_dim, 
-            distr_output = distr_output,use_feat_static = use_feat_static,
+            distr_output = distr_output,use_feat_static = gvar._use_cate_feature,
             cardinality = [len(train_ds)] if gvar.static_cat_type==2 else cardinality)
             #tsCnt = len(train_ds))
 

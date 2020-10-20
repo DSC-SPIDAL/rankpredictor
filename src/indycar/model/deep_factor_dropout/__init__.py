@@ -12,9 +12,9 @@
 # permissions and limitations under the License.
 
 # Relative imports
-from ._estimator import DeepFactorEstimator
+from ._estimator import DeepFactorXEstimator
 
-__all__ = ["DeepFactorEstimator"]
+__all__ = ["DeepFactorXEstimator"]
 
 # fix Sphinx issues, see https://bit.ly/2K2eptM
 for item in __all__:

@@ -51,7 +51,7 @@ register_matplotlib_converters()
 from pathlib import Path
 import configparser
 
-from gluonts.model.deep_factor import DeepFactorEstimator
+from gluonts.model.deepvar import DeepVAREstimator
 from gluonts.model.deepstate import DeepStateEstimator
 from gluonts.model.n_beats import NBEATSEstimator
 from gluonts.trainer import Trainer
@@ -83,6 +83,8 @@ from indycar.model.ListDataSetX import ListDatasetX
 
 from gluonts.model.transformer import TransformerEstimator
 
+from gluonts.model.deep_factor import DeepFactorEstimator
+from indycar.model.deep_factor import DeepFactorXEstimator
 
 logger = logging.getLogger(__name__)
 
@@ -143,11 +145,16 @@ def make_lapstatus_data(dataset):
     return onecar[['completed_laps','track_status']]
 
 def load_data(event, year=0):
-    #inputfile = '../data/final/C_'+ event +'-' + year + '-final.csv'
-    if year>0:
-        inputfile = '../data/final/C_'+ event +'-' + year + '.csv'
+
+    if gvar.use_driverid:
+        prefix = '../data/final/driverid/C_'
     else:
-        inputfile = '../data/final/C_'+ event +'.csv'
+        prefix = '../data/final/C_'
+
+    if year>0:
+        inputfile = prefix + event +'-' + year + '.csv'
+    else:
+        inputfile = prefix + event +'.csv'
     
     #outputprefix = year +'-' + event + '-'
     dataset = pd.read_csv(inputfile)
@@ -1172,7 +1179,7 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
         epochs=epochs, 
         learning_rate=gvar.learning_rate, 
         patience = gvar.patience,
-        #hybridize=False,
+        hybridize=gvar.hybridize,
         num_batches_per_epoch=100
         )
 
@@ -1458,6 +1465,16 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
             lags_seq=gvar._lags_seq,
             trainer=trainer
         )
+    elif model == 'deepVAR':
+        estimator = DeepVAREstimator(
+            prediction_length=prediction_length,
+            context_length= context_length,
+            freq=freq,
+            target_dim = 2,
+            cardinality=cardinality,
+            trainer=trainer
+        )
+    
     elif model == 'deepFactor':
         estimator = DeepFactorEstimator(
             prediction_length=prediction_length,
@@ -1468,16 +1485,25 @@ def init_estimator(model, gpuid, epochs=100, batch_size = 32,
             #lags_seq=gvar._lags_seq,
             trainer=trainer
         )
+    elif model == 'deepFactorX':
+        estimator = DeepFactorXEstimator(
+            prediction_length=prediction_length,
+            context_length= context_length,
+            freq=freq,
+            #cardinality=[tsCnt],
+            cardinality=cardinality,
+            num_hidden_local = gvar.deepFactorX_num_hidden_local,
+            #lags_seq=gvar._lags_seq,
+            trainer=trainer
+        )
     elif model == 'deepState':
         estimator = DeepStateEstimator(
             prediction_length=prediction_length,
             past_length=context_length,
-            use_feat_static_cat=False,
+            use_feat_static_cat=gvar._use_cate_feature,
             cardinality=cardinality,
-            #cardinality=[33],
             freq=freq,
-            #lags_seq=gvar._lags_seq,
-            #use_feat_dynamic_real=True,
+            use_feat_dynamic_real=gvar.use_dynamic_real,
             trainer=trainer
         )
     elif model == 'nbeats':

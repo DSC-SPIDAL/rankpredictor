@@ -45,6 +45,7 @@ from gluonts.dataset.util import to_pandas
 from pathlib import Path
 from gluonts.model.deep_factor import DeepFactorEstimator
 from gluonts.model.deepstate import DeepStateEstimator
+from gluonts.model.deepvar import DeepVAREstimator
 from gluonts.trainer import Trainer
 from gluonts.model.simple_feedforward import SimpleFeedForwardEstimator
 from gluonts.evaluation.backtest import make_evaluation_predictions
@@ -797,7 +798,7 @@ def load_model(prediction_length, model_name,trainid,epochs=1000, exproot='../mo
         modeldir = rootdir + model
 
     # deepFactor
-    elif model_name == 'deepFactor' or model_name == 'deepState' or model_name == 'nbeats':
+    elif model_name == 'deepFactor' or model_name == 'deepState' or model_name == 'nbeats' or model_name == 'deepFactorX' or model_name == 'deepVAR':
         model=f'{model_name}-{_task_id}-all-indy-f1min-t{prediction_length}-e{epochs}-r1_oracle_t{prediction_length}'
         modeldir = rootdir + model
     # naive

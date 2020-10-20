@@ -21,10 +21,10 @@ from gluonts.core.component import validated
 from gluonts.dataset.field_names import FieldName
 from gluonts.distribution import DistributionOutput, StudentTOutput
 
-from gluonts.model.deep_factor.RNNModel import RNNModel
-from gluonts.model.deep_factor._network import (
-    DeepFactorTrainingNetwork,
-    DeepFactorPredictionNetwork,
+from .RNNModel import RNNModel
+from ._network import (
+    DeepFactorXTrainingNetwork,
+    DeepFactorXPredictionNetwork,
 )
 from gluonts.model.estimator import GluonEstimator
 from gluonts.model.predictor import Predictor, RepresentableBlockPredictor
@@ -37,15 +37,16 @@ from gluonts.transform import (
     SetFieldIfNotPresent,
     TestSplitSampler,
     Transformation,
+    VstackFeatures,
 )
 
-
+import indycar.model.global_variables as gvar
 # Third-party imports
 
 
-class DeepFactorEstimator(GluonEstimator):
+class DeepFactorXEstimator(GluonEstimator):
     r"""
-    DeepFactorEstimator is an implementation of the 2019 ICML paper "Deep Factors for Forecasting"
+    DeepFactorXEstimator is an implementation of the 2019 ICML paper "Deep Factors for Forecasting"
     https://arxiv.org/abs/1905.12417.  It uses a global RNN model to learn patterns across multiple related time series
     and an arbitrary local model to model the time series on a per time series basis.  In the current implementation,
     the local model is a RNN (DF-RNN).
@@ -146,6 +147,7 @@ class DeepFactorEstimator(GluonEstimator):
             num_hidden=num_hidden_global,
             num_layers=num_layers_global,
             num_output=num_factors,
+            context_length = self.context_length,
         )
 
         # TODO: Allow the local model to be defined as an arbitrary local model, e.g. DF-GP and DF-LDS
@@ -154,6 +156,7 @@ class DeepFactorEstimator(GluonEstimator):
             num_hidden=num_hidden_local,
             num_layers=num_layers_local,
             num_output=1,
+            context_length = self.context_length,
         )
 
     def create_transformation(self) -> Transformation:
@@ -171,6 +174,17 @@ class DeepFactorEstimator(GluonEstimator):
                     field=FieldName.FEAT_STATIC_CAT, value=[0.0]
                 ),
                 AsNumpyArray(field=FieldName.FEAT_STATIC_CAT, expected_ndim=1),
+                VstackFeatures(
+                    output_field=FieldName.FEAT_TIME,
+                    input_fields=[FieldName.FEAT_TIME]
+                        if gvar.use_time_feat
+                        else []
+                    + (
+                        [FieldName.FEAT_DYNAMIC_REAL]
+                        if gvar.use_dynamic_real
+                        else []
+                    ),
+                ),
                 transform.InstanceSplitter(
                     target_field=FieldName.TARGET,
                     is_pad_field=FieldName.IS_PAD,
@@ -184,8 +198,8 @@ class DeepFactorEstimator(GluonEstimator):
             ]
         )
 
-    def create_training_network(self) -> DeepFactorTrainingNetwork:
-        return DeepFactorTrainingNetwork(
+    def create_training_network(self) -> DeepFactorXTrainingNetwork:
+        return DeepFactorXTrainingNetwork(
             embedder=FeatureEmbedder(
                 cardinalities=self.cardinality,
                 embedding_dims=self.embedding_dimensions,
@@ -197,9 +211,9 @@ class DeepFactorEstimator(GluonEstimator):
     def create_predictor(
         self,
         transformation: Transformation,
-        trained_network: DeepFactorTrainingNetwork,
+        trained_network: DeepFactorXTrainingNetwork,
     ) -> Predictor:
-        prediction_net = DeepFactorPredictionNetwork(
+        prediction_net = DeepFactorXPredictionNetwork(
             embedder=trained_network.embedder,
             global_model=trained_network.global_model,
             local_model=trained_network.local_model,
