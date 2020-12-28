@@ -3,12 +3,14 @@
 ### directories
 
 src ; python code for preprocessing and models
+
 sub ; fork from GluonTs library
+
 run ; notebooks and scripts for all the experiments
 
 ### citation
 
-@article{peng_rank_2020,
+	@article{peng_rank_2020,
 	title = {Rank {Position} {Forecasting} in {Car} {Racing}},
 	url = {http://arxiv.org/abs/2010.01707},
 	urldate = {2020-12-14},
@@ -17,4 +19,4 @@ run ; notebooks and scripts for all the experiments
 	month = oct,
 	year = {2020},
 	note = {arXiv: 2010.01707},
-}
+	}
